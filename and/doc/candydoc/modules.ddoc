@@ -1,0 +1,17 @@
+MODULES = 
+	$(MODULE and.network.neuralnetwork)
+	$(MODULE and.network.layer)
+	$(MODULE and.network.model.ineuralnetwork)
+	$(MODULE and.network.model.ilayer)
+	$(MODULE and.network.neuron)
+	$(MODULE and.network.serialize)
+	$(MODULE and.learning.model.ilearning)
+	$(MODULE and.learning.backprop)
+	$(MODULE and.cost.model.icostfunction)
+	$(MODULE and.cost.sse)
+	$(MODULE and.cost.mse)
+	$(MODULE and.activation.model.iactivation)
+	$(MODULE and.activation.sigmoid)
+	$(MODULE and.activation.tanh)
+	$(MODULE and.api)
+
