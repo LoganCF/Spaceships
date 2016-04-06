@@ -16,15 +16,15 @@ Change the %dmd% variable in build.bat to reflect the location where you downloa
 
 
 The game:
-Each player starts with a Monthership (large diamond) at opposing corners of the screen.
+Each player starts with a Mothership (large diamond) at opposing corners of the screen.
 There are 12 capture points (+ symbols) on the screen.  Players gain an Income based on the number of Points they control, which determines how fast the Mothership can build new units.
 Controlling more points than the opponent makes thier victory counter (bar at the top of the screen) shrink. 
-A player wins by reducing thieropponent's victory counter to 0.
+A player wins by reducing thier opponent's victory counter to 0.
 
 There are 11 types of ships in the game:
   Combat Ships:
-    3 types of Fighters (small): Fighers move quickly but have a short attack range.
-    3 types of Light Ships (medium):  Light ships are between Fighters and Capital ships in speed and range.
+    3 types of Fighters      (small): Fighers move quickly but have a short attack range.
+    3 types of Light Ships  (medium):  Light ships are between Fighters and Capital ships in speed and range.
     3 types of Capital Ships (large): Capital Ships move slowly but can attack at long range.
     The shape of a combat ship indicates what size of ship it is effective against.
      Triangles deal double damage against Fighters.
