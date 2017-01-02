@@ -211,10 +211,11 @@ void run_duel(string [] args, RenderWindow window)
 {	
 	g_is_manual_game = false;
 	
+	int player_1 = to!int(args[0]);
+	int player_2 = to!int(args[1]);
+	
 	while(window.isOpen())
 	{
-		int player_1 = to!int(args[0]);
-		int player_2 = to!int(args[1]);
 		
 		if(g_teams[0] !is null) { destroy(g_teams[0]); }
 		if(g_teams[1] !is null) { destroy(g_teams[1]); }
@@ -225,6 +226,10 @@ void run_duel(string [] args, RenderWindow window)
 		run_match(args[2..$], window);
 		GC.collect();
 	
+		//swap starting locations
+		int temp = player_1;
+		player_1 = player_2;
+		player_2 = temp;
 	}
 }
 
@@ -233,6 +238,8 @@ void run_duel_manual(string [] args, RenderWindow window)
 	//"▀▀▄▐▄█▀█▄▌█▀ ▌▌▌" 
 	
 	g_is_manual_game = true;
+  
+  bool swap_positions = false;
 	
 	while(window.isOpen())
 	{
@@ -241,9 +248,20 @@ void run_duel_manual(string [] args, RenderWindow window)
 		if(g_teams[0] !is null) { destroy(g_teams[0]); }
 		if(g_teams[1] !is null) { destroy(g_teams[1]); }
 		
-		PlayerTeam pt = new PlayerTeam(TeamID.One,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
-		g_teams[0]    = pt;
-		g_teams[1]    = new TeamObj   (TeamID.Two,     AI_colors[opponent  ].c , AI_colors[opponent].n);
+    PlayerTeam pt;
+    
+    if(!swap_positions) 
+    {      
+      pt            = new PlayerTeam(TeamID.One,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
+      g_teams[0]    = pt;
+      g_teams[1]    = new TeamObj   (TeamID.Two,     AI_colors[opponent  ].c , AI_colors[opponent].n);
+    } else {
+      g_teams[0]    = new TeamObj   (TeamID.One,     AI_colors[opponent  ].c , AI_colors[opponent].n);
+      pt            = new PlayerTeam(TeamID.Two,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
+      g_teams[1]    = pt;
+    }
+    
+    swap_positions = !swap_positions;
 		
 		pt.set_window(window);
 		run_match(args[1..$], window);
@@ -386,10 +404,10 @@ void run_match(string [] args, RenderWindow window)
 	g_teams[0].set_match_info(minfo);
 	g_teams[1].set_match_info(minfo);
 	
-	FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[0], g_teams[0]._color, cap_placement_scale*1.0, cap_placement_scale*1.0, g_is_manual_game );
+	FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[0], g_teams[0]._color, cap_placement_scale*1.0, cap_placement_scale*1.0, g_teams[0]._is_player_controlled ); 
 		dots      ~= factory1;
 		factories ~= factory1;
-	factory1             = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[1], g_teams[1]._color, cap_placement_scale*7.0, cap_placement_scale*7.0);
+	factory1             = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[1], g_teams[1]._color, cap_placement_scale*7.0, cap_placement_scale*7.0, g_teams[1]._is_player_controlled );
 		dots      ~= factory1;
 		factories ~= factory1;
 	
@@ -498,6 +516,11 @@ void run_match(string [] args, RenderWindow window)
 		
 		grid.update( dots );
 		
+		
+		foreach(team ; g_teams[0..2])
+		{
+			team.update_ai_records(game_timer);
+		}
 		
 		foreach(point; capture_points)
 		{

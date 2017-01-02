@@ -76,7 +76,7 @@ class CapturePoint : Drawable
 				//writefln("unit counts has %d elements", unit._team._unit_counts.length);
 				//writefln("this zone's unit counts has %d elements", unit._team._unit_counts[_zone_number].length);
 				unit._team._unit_counts[_zone_number][unit._type]++;
-				unit._team._unit_total_cost_at_points[_zone_number] += get_unit_build_cost(unit._type)/UNIT_COST_BASE;
+				unit._team._unit_total_cost_at_points[_zone_number] += get_unit_build_cost(unit._type);// /UNIT_COST_BASE;
 				if( unit._team._id == TeamID.One )
 				{
 					//_team1_unit_counts[unit._type] ++;

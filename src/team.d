@@ -70,11 +70,13 @@ class TeamObj : Drawable
 	NetworkInputDisplay _input_disp;
 	
 	MatchInfo _match_info;
+  
+  bool _is_player_controlled = false;
 	
 	this(TeamID in_id, inout Color in_color, inout char[] in_name  ) // will take AI objects.
 	{
-		_build_ai   = new BuildAI(in_name ~ "_build.txt"); 
-		_command_ai = new CommandAI(in_name ~ "_command.txt");
+		_build_ai   = new BuildAI(in_name ~ "_build.txt"    , BUILD_AI_WINDOW ); 
+		_command_ai = new CommandAI(in_name ~ "_command.txt", COMMAND_AI_WINDOW );
 		_color = in_color;
 		_id = in_id;
 		_name = in_name.dup();
@@ -157,6 +159,15 @@ class TeamObj : Drawable
 			
 		
 	}
+	
+	// sets metric data for AIs
+	void update_ai_records(double now)
+	{
+		int score = _num_points_owned - _opponent._num_points_owned;
+		_build_ai  .update_records(now, score);
+		_command_ai.update_records(now, score);
+	}
+	
 	
 	void set_NN_input_display( NetworkInputDisplay in_disp )
 	{
@@ -275,12 +286,12 @@ class TeamObj : Drawable
 		// total unit cost at point
 		foreach(total_cost; _unit_total_cost_at_points)
 		{
-			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR;
+			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;
 		}
 		// enemy total cost at point
 		foreach(total_cost; _opponent._unit_total_cost_at_points)
 		{
-			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR;
+			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;
 		}
 		
 		
@@ -329,6 +340,8 @@ class TeamObj : Drawable
 		return new_dest;
 	}
 	
+	// used to record a move order when the player orders a move, 
+	// orders are normally recorded in ai_base.get_decision() when the AI is queried for a decision.
 	void record_move_order(Unit unit, int destination_index )
 	{
 		real[] inputs = get_command_inputs(unit);
@@ -434,6 +447,9 @@ class TeamObj : Drawable
 		return inputs;
 	}
 	
+	
+	// used to record a build command when the mothership builds a unit in a player controlled faction, (see record_move_decision)
+	// orders are normally recorded in ai_base.get_decision() when the AI is queried for a decision.
 	void record_build_decision(FactoryUnit building_unit, UnitType decision)
 	{
 		real[] inputs = get_build_inputs(building_unit);
@@ -444,23 +460,30 @@ class TeamObj : Drawable
 	void handle_endgame(bool won_game)
 	{
 		_game_over = true;
+		
+		_build_ai  .update_records_endgame(won_game);
+		_command_ai.update_records_endgame(won_game);
+		
 		if(won_game)
 		{
 			writefln("-----------%s Won!   %d orders, %d builds----------", _name, _num_orders_given, _num_builds);
-			writeln("Training winner's build AI:");
+			writefln("Training winner's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
 			_build_ai.train_net(true);
-			writeln("Training winner's command AI:");
+			writefln("Training winner's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
 			_command_ai.train_net(true);
 			
 			writeln("Training loser's build AI to emulate winner:");
 			_opponent._build_ai.train_net_to_emulate(this._build_ai); 
 			writeln("Training loser's command AI to emulate winner");
 			_opponent._command_ai.train_net_to_emulate(this._command_ai);
+			
+			_opponent._build_ai  .save_net();
+			_opponent._command_ai.save_net();
 		} else {
 			writefln("-----------%s Lost!  %d orders, %d builds-----------", _name, _num_orders_given, _num_builds);
-			writeln("Training loser's build AI:");
+			writefln("Training loser's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
 			_build_ai.train_net(false);
-			writeln("Training loser's command AI:");
+			writefln("Training loser's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
 			_command_ai.train_net(false);
 		}
 		

@@ -28,9 +28,9 @@ class BuildAI : BaseAI
 	
 	//string _filename;
 
-	this( char[] filename)
+	this( char[] filename, double time_window )
 	{
-		super(filename);
+		super(filename, time_window);
 	}
 	
 	
@@ -46,13 +46,8 @@ class BuildAI : BaseAI
 			size_t num_dups = to!size_t( unit_cost / UNIT_COST_BASE ) - 1;
 			for(size_t j = 0; j < num_dups; ++j)
 			{
-				_input_records  ~=  _input_records[i];
-				if(victory)
-				{
-					_output_records ~= _output_records[i];
-				} else {
-					_output_records ~= random_in_range_excluding(0, NUM_UNIT_TYPES, _output_records[i] );
-				}
+				_input_records    ~= _input_records[i];
+				_training_output ~= _training_output[i]; 
 			}
 		}
 	}

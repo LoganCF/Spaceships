@@ -23,9 +23,9 @@ class CommandAI : BaseAI
 {
 	// has a neuralnet and a record of decisions made in the most recent game.
 	
-	this( char[] filename )
+	this( char[] filename, double time_window )
 	{
-		super(filename);
+		super(filename, time_window);
 	}
 	
 	

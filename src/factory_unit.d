@@ -29,7 +29,7 @@ class FactoryUnit : Unit
 	
 	double _build_boredom_timer = 0.0;
 	
-	double _last_built_up = false; // ternate building left-up and left-right ot avoid odd behaviors
+	double _last_built_up = false; // alternate building left-up and left-right ot avoid odd behaviors
 	
 	this(double x, double y, 
 		 double in_max_vel = 400.0, double in_max_accel = 800.0, float size = 2, ShapeType in_shape = ShapeType.Circle, Color in_color = Color.Red,
