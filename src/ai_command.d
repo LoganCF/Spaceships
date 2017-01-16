@@ -34,7 +34,8 @@ class CommandAI : BaseAI
 		int num_inputs = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3   //starting to smell like a funciton up in here.
 			+ NUM_UNIT_TYPES + NUM_CAPTURE_POINTS + 1     // command_ai specific stuff
 			+ 1 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
-			+ 2; // gen 2.5
+			+ 2 // gen 2.5
+            + NUM_CAPTURE_POINTS; // gen 3.5
 			
 		int num_outputs = NUM_CAPTURE_POINTS;
 		int num_hidden_neurons = 144; // because I wanted it to be.

@@ -57,7 +57,7 @@ class FactoryUnit : Unit
 	
 	Unit give_resources(double res)
 	{
-		if(_current_build == UnitType.None) 
+		if(_is_dead || _current_build == UnitType.None) 
 			return null;
 	
 		Unit retval = null;
@@ -132,17 +132,20 @@ double get_unit_build_cost( UnitType type )
 {
 	final switch(type)
 	{
-		case UnitType.Interceptor, UnitType.AssaultFighter, UnitType.Bomber:
+		case UnitType.Interceptor:
 			return UNIT_COST_BASE * 2.0;
 			break;
-		case UnitType.Corvette, UnitType.Frigate, UnitType.Destroyer:
+		case UnitType.Destroyer:
 			return UNIT_COST_BASE * 6.0;
 			break;
-		case UnitType.Cruiser, UnitType.BattleCruiser, UnitType.Battleship:
+		case UnitType.Cruiser:
+			return UNIT_COST_BASE * 12.0;
+			break;
+		case UnitType.Battleship:
 			return UNIT_COST_BASE * 18.0;
 			break;
 		case UnitType.Miner:
-			return UNIT_COST_BASE * 4.5;
+			return UNIT_COST_BASE * 4.0;
 			break;
 		case UnitType.Mothership:
 			return UNIT_COST_BASE * 36.0;

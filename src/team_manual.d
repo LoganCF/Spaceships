@@ -28,7 +28,7 @@ class PlayerTeam : TeamObj
 	
 	RenderWindow _window; // kludge, input should be polled elsewhere.
 	
-	bool     _selecting;
+	bool	 _selecting;
 	Vector2d _selection_start;
 	
 	CircleShape _selection_circle;
@@ -43,12 +43,12 @@ class PlayerTeam : TeamObj
 	{
 		super( in_id, in_color, in_name );
 		
-    _is_player_controlled = true;
-    
+	_is_player_controlled = true;
+	
 		_selection_circle = new CircleShape();
 		_selection_circle.outlineThickness = 1.0f;
-		_selection_circle.outlineColor     = Color.White;
-		_selection_circle.fillColor        = Color.Transparent;
+		_selection_circle.outlineColor	   = Color.White;
+		_selection_circle.fillColor		   = Color.Transparent;
 	}
 	
 	
@@ -61,21 +61,21 @@ class PlayerTeam : TeamObj
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )
 	{
-    if(building_unit._current_build != UnitType.None)
-    {
-      return building_unit._current_build;
-    } else {
-      return UnitType.Interceptor;
-    }
+	if(building_unit._current_build != UnitType.None)
+	{
+	  return building_unit._current_build;
+	} else {
+	  return UnitType.Interceptor;
+	}
 		
 	}
 	
 	override void update( CollisionGrid grid, double dt )
 	{
 		
-    _command_ai.load_or_initialize_net();
-    _build_ai  .load_or_initialize_net();
-    
+	_command_ai.load_or_initialize_net();
+	_build_ai  .load_or_initialize_net();
+	
 		// left-click selection
 		if(!_selecting)
 		{
@@ -90,7 +90,7 @@ class PlayerTeam : TeamObj
 			if( Mouse.isButtonPressed(Mouse.Button.Left) )
 			{
 				Vector2i mouse_pos = Mouse.getPosition(_window);
-				Vector2d selection_end  = Vector2d( mouse_pos.x, mouse_pos.y );
+				Vector2d selection_end	= Vector2d( mouse_pos.x, mouse_pos.y );
 				
 				//find circle size and center
 				_selection_circle_center = (_selection_start + selection_end) / 2;
@@ -126,7 +126,7 @@ class PlayerTeam : TeamObj
 		//space to select
 		if( Keyboard.isKeyPressed(Keyboard.Key.Space) )
 		{
-			Vector2i mouse_pos        = Mouse.getPosition(_window);
+			Vector2i mouse_pos		  = Mouse.getPosition(_window);
 			Vector2d mouse_pos_double = Vector2d( mouse_pos.x, mouse_pos.y );
 			
 			if( ! (Keyboard.isKeyPressed(Keyboard.Key.LShift) || Keyboard.isKeyPressed(Keyboard.Key.RShift) ) )
@@ -157,13 +157,13 @@ class PlayerTeam : TeamObj
 		//right click to order move
 		//TODO: mouse released event
 		if( ! Mouse.isButtonPressed(Mouse.Button.Right)
-			&& _right_click_was_pressed_last_frame       )
+			&& _right_click_was_pressed_last_frame		 )
 		{
 			// give move orders and record it for the NNs
 			Vector2i mouse_pos = Mouse.getPosition(_window);
 			Vector2d move_to  = Vector2d( mouse_pos.x, mouse_pos.y );
 		
-			int    closest_point;
+			int	   closest_point;
 			double closest_dist_sq = 999999999.0;
 			foreach(int index , point; _points)
 			{
@@ -184,7 +184,7 @@ class PlayerTeam : TeamObj
 					_unit_destination_counts[ unit._destination_id ][unit._type] --;
 				}
 				unit._destination_id = closest_point;
-				_unit_destination_counts[closest_point         ][unit._type] ++;
+				_unit_destination_counts[closest_point		   ][unit._type] ++;
 				
 				record_move_order(unit, closest_point);
 				_num_orders_given++;
@@ -265,9 +265,9 @@ class PlayerTeam : TeamObj
 			_opponent._build_ai.train_net_to_emulate(this._build_ai); 
 			writeln("Training loser's command AI to emulate winner");
 			_opponent._command_ai.train_net_to_emulate(this._command_ai);
-      
-     _opponent._build_ai  .save_net();
-      _opponent._command_ai.save_net();
+	  
+	 _opponent._build_ai  .save_net();
+	  _opponent._command_ai.save_net();
 		} else {
 			writefln("-----------%s Lost!  %d orders, %d builds-----------", _player_name, _num_orders_given, _num_builds);
 			writeln("Training loser's build AI:");
@@ -325,27 +325,16 @@ UnitType get_unit_type_from_keypress(/+Keyboard.Key pressed+/ )
 	{
 		if( Keyboard.isKeyPressed( Q ) )
 			return UnitType.Interceptor;
-		if( Keyboard.isKeyPressed( W ) )
-			return UnitType.AssaultFighter;
-		if( Keyboard.isKeyPressed( E ) )
-			return UnitType.Bomber;
-			
-		if( Keyboard.isKeyPressed( A ) )
-			return UnitType.Corvette;
-		if( Keyboard.isKeyPressed( S ) )
-			return UnitType.Frigate;
-		if( Keyboard.isKeyPressed( D ) )
+		if( Keyboard.isKeyPressed( W) )
 			return UnitType.Destroyer;
-		if( Keyboard.isKeyPressed( F ) )
+		if( Keyboard.isKeyPressed( E ) )
 			return UnitType.Miner;
 			
-		if( Keyboard.isKeyPressed( Z ) )
+		if( Keyboard.isKeyPressed( A ) )
 			return UnitType.Cruiser;
-		if( Keyboard.isKeyPressed( X ) )
-			return UnitType.BattleCruiser;
-		if( Keyboard.isKeyPressed( C ) )
+		if( Keyboard.isKeyPressed( S ) )
 			return UnitType.Battleship;
-		if( Keyboard.isKeyPressed( V ) )
+		if( Keyboard.isKeyPressed( D ) )
 			return UnitType.Mothership;
 			
 	}

@@ -7,6 +7,9 @@ All rights reserved.
 See "License.txt"
 */
 
+import std.conv;
+
+import core.memory; //for debug 
 
 import steering;
 import collision;
@@ -30,10 +33,10 @@ const double[][] damage_type_matrix = [ [1.50, 0.75, 0.75],
 										
 const ArmorType[] preferred_targets = [ ArmorType.Light, ArmorType.Medium, ArmorType.Heavy, ArmorType.Any ];
 
-enum UnitType { Interceptor, AssaultFighter, Bomber, Corvette, Frigate, Destroyer, Cruiser, BattleCruiser, Battleship, Miner, Mothership, None } // important: None must remain the last element
+enum UnitType { Interceptor, Destroyer, Cruiser, Battleship, Miner, Mothership, None } // important: None must remain the last element
 
 
-const int NUM_UNIT_TYPES = 11;
+const int NUM_UNIT_TYPES = to!int(UnitType.None);
 										
 class Unit  : Dot
 {
@@ -114,7 +117,7 @@ class Unit  : Dot
 	void take_damage(double in_damage, DamageType dmg_type)
 	{
 		_health_current -= in_damage * damage_type_matrix[dmg_type][_armor_type];
-		if(_health_current < 0.0)
+		if(_health_current < 0.0 && !_is_dead)
 		{
 			_is_dead = true; // kaboom!
 			_team._unit_lost_counts[_type]++;
@@ -139,7 +142,7 @@ class Unit  : Dot
 		{
 			_location_boredom_timer = 0.0;
 		}
-		//update team's destination counts.
+	
 		_needs_orders = false;
 		
 	}
@@ -147,7 +150,7 @@ class Unit  : Dot
 	void shoot( Unit target )
 	{
 		target.take_damage(_attack_damage, _damage_type);
-		_cooldown_remaining = _attack_cooldown;
+		_cooldown_remaining += _attack_cooldown;
 		
 		// TODO: tell environment that an attack happened ... somehow.
 		// maintain a shooty_line obejct and whether it should be drawn?
@@ -225,7 +228,12 @@ class Unit  : Dot
 		
 		if(_cooldown_remaining <= 0)
 		{
-			pick_target_and_attack( grid /+dots+/);
+			pick_target_and_attack( grid );
+	  // _cooldown_remaining increases by _attack_cooldown if we fire
+	  if(_cooldown_remaining <= 0) 
+	  {
+		_cooldown_remaining = 0.0;
+	  }
 		} else {
 			_cooldown_remaining -= dt;
 		}
@@ -295,58 +303,23 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 {
 	Unit new_unit;
 	final switch (type)
-	{
+	{	
+			
 		//////////////////////////////
-		//Fighters
+		//Light Ships
 		//////////////////////////////
 		case UnitType.Interceptor:
 			new_unit = new Unit( x, y, 
 								 200.0, 400.0, 2.5, ShapeType.Triangle, in_color, // speed, accel, size, color
 								 LIGHT_UNIT_HARD_RADIUS, LIGHT_UNIT_SOFT_RADIUS,  LIGHT_UNIT_HARD_RADIUS_PUSH, LIGHT_UNIT_SOFT_RADIUS_PUSH, Lookahead.SHORT,  // steering params
-								 in_team, type, 400.0, ArmorType.Light, 125.0, 2.0, 20.0, DamageType.Frag, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
+								 in_team, type, 400.0, ArmorType.Light, 125.0, 1.5, 20.0, DamageType.Frag, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
-			
-			
-		case UnitType.AssaultFighter:
-			new_unit = new Unit( x, y, 
-								 200.0, 400.0, 2.5, ShapeType.Circle, in_color, // speed, accel, size, color
-								 LIGHT_UNIT_HARD_RADIUS, LIGHT_UNIT_SOFT_RADIUS,  LIGHT_UNIT_HARD_RADIUS_PUSH, LIGHT_UNIT_SOFT_RADIUS_PUSH, Lookahead.SHORT,  // steering params
-								 in_team, type, 400.0, ArmorType.Light, 125.0, 2.0, 20.0, DamageType.Explosive, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
-			break;
-			
-	
-		case UnitType.Bomber:
-			new_unit = new Unit( x, y, 
-								 200.0, 400.0, 2.5, ShapeType.Square, in_color, // speed, accel, size, color
-								 LIGHT_UNIT_HARD_RADIUS, LIGHT_UNIT_SOFT_RADIUS,  LIGHT_UNIT_HARD_RADIUS_PUSH, LIGHT_UNIT_SOFT_RADIUS_PUSH, Lookahead.SHORT,  // steering params
-								 in_team, type, 400.0, ArmorType.Light,125.0, 1.0, 40.0, DamageType.AP, 0.100, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
-			break;
-			
-			
-		//////////////////////////////
-		//Light Ships
-		//////////////////////////////
-		case UnitType.Corvette:
-			new_unit = new Unit( x, y, 
-								 150.0, 150.0, 5, ShapeType.Triangle, in_color, // speed, accel, size, color
-								 MEDIUM_UNIT_HARD_RADIUS, MEDIUM_UNIT_SOFT_RADIUS,  MEDIUM_UNIT_HARD_RADIUS_PUSH, MEDIUM_UNIT_SOFT_RADIUS_PUSH, Lookahead.MEDIUM,  // steering params
-								 in_team, type, 1200.0, ArmorType.Medium, 200.0, 3.0, 30.0, DamageType.Frag, 0.050, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
-			break;
-
-			
-		case UnitType.Frigate:
-			new_unit = new Unit( x, y, 
-								 150.0, 150.0, 5, ShapeType.Circle, in_color, // speed, accel, size, color
-								 MEDIUM_UNIT_HARD_RADIUS, MEDIUM_UNIT_SOFT_RADIUS,  MEDIUM_UNIT_HARD_RADIUS_PUSH, MEDIUM_UNIT_SOFT_RADIUS_PUSH, Lookahead.MEDIUM,  // steering params
-								 in_team, type, 1200.0, ArmorType.Medium, 200.0, 1.5, 60.0, DamageType.Explosive, 0.150, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
-			break;
-		
 		
 		case UnitType.Destroyer:
 			new_unit = new Unit( x, y, 
 								 150.0, 150.0, 5, ShapeType.Square, in_color, // speed, accel, size, color
 								 MEDIUM_UNIT_HARD_RADIUS, MEDIUM_UNIT_SOFT_RADIUS,  MEDIUM_UNIT_HARD_RADIUS_PUSH, MEDIUM_UNIT_SOFT_RADIUS_PUSH, Lookahead.MEDIUM,  // steering params
-								 in_team, type, 1200.0, ArmorType.Medium, 200.0, 1.5, 60.0, DamageType.AP, 0.15, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
+								 in_team, type, 1200.0, ArmorType.Light, 200.0, 1.5, 60.0, DamageType.AP, 0.15, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
 			
 		//////////////////////////////
@@ -354,19 +327,10 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 		//////////////////////////////	
 		case UnitType.Cruiser:   
 			new_unit = new Unit( x, y, 
-								 100.0,  50.0, 9, ShapeType.Triangle, in_color, // speed, accel, size, color
+								 125.0,  82.5, 8, ShapeType.Triangle, in_color, // speed, accel, size, color
 								 HEAVY_UNIT_HARD_RADIUS, HEAVY_UNIT_SOFT_RADIUS, HEAVY_UNIT_HARD_RADIUS_PUSH, HEAVY_UNIT_SOFT_RADIUS_PUSH, Lookahead.FAR,  // steering params
-								 in_team, type, 3600.0, ArmorType.Heavy, 300.0, 1.0, 180.0, DamageType.Frag, 0.25, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
+								 in_team, type, 2400.0, ArmorType.Heavy, 250.0, 2.0, 60.0, DamageType.Frag, 0.25, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
-			
-			
-		case UnitType.BattleCruiser:
-			new_unit = new Unit( x, y, 
-								 100.0,  50.0, 9, ShapeType.Circle, in_color, // speed, accel, size, color
-								 HEAVY_UNIT_HARD_RADIUS, HEAVY_UNIT_SOFT_RADIUS, HEAVY_UNIT_HARD_RADIUS_PUSH, HEAVY_UNIT_SOFT_RADIUS_PUSH, Lookahead.FAR,  // steering params
-								 in_team, type, 3600.0, ArmorType.Heavy, 300.0, 1.0, 180.0, DamageType.Explosive, 0.25, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
-			break;
-			
 		
 		case UnitType.Battleship:
 			new_unit = new Unit( x, y, 
@@ -380,7 +344,7 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 		//////////////////////////////	
 		case UnitType.Mothership:
 			new_unit = new FactoryUnit( x, y, 
-								  50.0,  25.0, 15*SQRT2, ShapeType.Diamond, in_color, // speed, accel, size, color
+								  50.0,  25.0, 15*SQRT2, ShapeType.Diamond, in_color, // speed, accel, size, color.  (size = 15*SQRT2 is becasue Diamonds are drawn smaller than sqares)
 								 square(20)/2, square(40.0)/2,  square(50)/2, square(80.0)/2, Lookahead.FAR,  // steering params
 								 in_team, type, 14400.0, ArmorType.Heavy, 250.0, 1.0, 120.0, DamageType.Universal, 0.25, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
@@ -390,7 +354,7 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 			new_unit = new Unit( x, y, 
 								 100.0, 100.0, 4, ShapeType.Diamond, in_color, // speed, accel, size, color
 								 square(12)/2, square(30.0)/2,  square(24)/2, square(45.0)/2, Lookahead.MEDIUM,  // steering params
-								 in_team, type, 600.0, ArmorType.Medium, 150.0, 1.0, 30.0, DamageType.Universal, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
+								 in_team, type, 600.0, ArmorType.Light, 150.0, 1.0, 30.0, DamageType.Universal, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
 			
 			

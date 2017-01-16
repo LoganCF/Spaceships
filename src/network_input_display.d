@@ -69,7 +69,7 @@ class NetworkInputDisplay : Drawable
 		/////////////////////
 		// Init row lengths
 		/////////////////////
-		int[] num_rows_in_categories = [ 0, 4*NUM_CAPTURE_POINTS, 2, 1, 1, 1, 1, 4, 2 ];
+		int[] num_rows_in_categories = [ 0, 4*NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2 ];
 		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, 5, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 2, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS];
 		
 		int sum = 0;
@@ -113,17 +113,18 @@ class NetworkInputDisplay : Drawable
 		////////////////////////
 		
 		// they divide:
-		// 11 rows: unit count at point (each row is a unit type)
-		// 11 rows: unit destination_counts
-		// 11 rows: enemy unit count at point
-		// 11 rows: enemy unit destination_counts
+		// 12 rows: unit count at point (each row is a point)
+		// 12 rows: unit destination_counts
+		// 12 rows: enemy unit count at point
+		// 12 rows: enemy unit destination_counts
 		//  2 rows: who controls which points
 		//  1 row : incomes, game timer, ticket, enemy tickets
-		// 12 rows: dist_sq ti each point
-		// 11 rows: unit type
+		//  2 rows: distance to each point, closest point
+		//  1 row : unit type
+        //  1 row : current health and "boredom timer"
 		//  4 rows: unit lost counts, enemy unit lost counts, unit built counts, enemy unit built counts
 		//  2 rows: total unit cost at point and enemy total unit cost at point
-		int[] num_rows_between_lines = [NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 1, 1, 1, 1, 4, 2 ];
+		int[] num_rows_between_lines = [NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2 ];
 		int row_counter = 0;
 		
 		float line_width = (MAX_WIDTH - 1) * SPACING + MAX_WIDTH * DISPLAY_SIZE;

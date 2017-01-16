@@ -58,9 +58,9 @@ class TeamObj : Drawable
 	BuildAI   _build_ai;
 	CommandAI _command_ai;
 	
-	int _num_factories = 0;
+	int _num_factories    = 0;
 	int _num_orders_given = 0;
-	int _num_builds     = 0;
+	int _num_builds       = 0;
 	int _num_points_owned = 0;
 	
 	double _game_timer = 0.0;
@@ -71,20 +71,27 @@ class TeamObj : Drawable
 	
 	MatchInfo _match_info;
   
-  bool _is_player_controlled = false;
+	bool _is_player_controlled = false;
+  
+	bool _train;
 	
-	this(TeamID in_id, inout Color in_color, inout char[] in_name  ) // will take AI objects.
+	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true ) // will take AI objects.
 	{
 		_build_ai   = new BuildAI(in_name ~ "_build.txt"    , BUILD_AI_WINDOW ); 
 		_command_ai = new CommandAI(in_name ~ "_command.txt", COMMAND_AI_WINDOW );
 		_color = in_color;
 		_id = in_id;
 		_name = in_name.dup();
+		_train = in_train;
 		
 		_unit_built_counts.length = NUM_UNIT_TYPES;
 		_unit_lost_counts.length  = NUM_UNIT_TYPES;
 	}
 	
+	~this()
+	{
+		_factories = null;
+	}
 	
 	static const double MINER_INCOME_FRACTION = 0.25;
 	
@@ -185,7 +192,7 @@ class TeamObj : Drawable
 		_points = in_points;
 		//debug writefln("points has %d elements", _points.length);
 		_unit_counts.length = _points.length;
-		_unit_destination_counts.length = _points.length;
+		_unit_destination_counts.length   = _points.length;
 		_unit_total_cost_at_points.length = _points.length;
 		_unit_total_cost_at_points.fill(0.0);
 		
@@ -210,18 +217,19 @@ class TeamObj : Drawable
 	}
 	
 	
-	
-	
-	
+	//gen2: num built/killed, location boredom, total cost at point
+	//gen 2.5: tickets
+	//gen 3: fewer unit types,  point-is-nuetral changed to pointed-not-owned-by-me
 	real[] get_common_ai_inputs(Unit unit)
 	{
 		real[] inputs = [ ];
+		inputs.reserve( NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 ); // so that we don't resize the array a bunch of times in the next 4 calls.
 		
 		//TODO: calculate the board state for the team externally, the first time it is needed each frame, and cache that shit.
-		add_num_units_scaled_by_cost_to_array( 		     _unit_counts	 		 , &inputs );
-		add_num_units_scaled_by_cost_to_array( 		     _unit_destination_counts, &inputs );
-		add_num_units_scaled_by_cost_to_array( _opponent._unit_counts  		     , &inputs );
-		add_num_units_scaled_by_cost_to_array( _opponent._unit_destination_counts, &inputs );
+		add_num_units_scaled_by_cost_to_array( 		       _unit_counts	 		   ,  inputs );
+		add_num_units_scaled_by_cost_to_array( 		       _unit_destination_counts,  inputs );
+		add_num_units_scaled_by_cost_to_array(   _opponent._unit_counts  		   ,  inputs );
+		add_num_units_scaled_by_cost_to_array(   _opponent._unit_destination_counts,  inputs );
 		//writefln("input size after unit counts: %d, expected value: %d, unittype has %d", inputs.length, NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4, NUM_UNIT_TYPES);
 		
 		foreach( point ; _points)
@@ -230,7 +238,7 @@ class TeamObj : Drawable
 		}
 		foreach( point ; _points)
 		{
-			inputs ~= (point._team_id == TeamID.Neutral) ? 1.0 : 0.0;
+			inputs ~= (point._team_id != _id) ? 1.0 : 0.0;  //changed in gen 3,
 		}
 		
 		inputs ~= _income           / _match_info._total_income_from_points;
@@ -240,10 +248,28 @@ class TeamObj : Drawable
 		inputs ~= _tickets           / _match_info._tickets_max;  // g2.5
 		inputs ~= _opponent._tickets / _match_info._tickets_max;  // g2.5
 		
-		foreach( point ; _points )
+		//
+		double closest_dist  = 9999.0;
+		int    closest_point_index = -1;
+		foreach( i, point ; _points )
 		{
 			double dist = sqrt( square(unit._pos.x - point._pos.x) + square(unit._pos.y - point._pos.y) );
 			inputs ~= dist / _match_info._battlefield_diagonal;
+			if(dist < closest_dist)
+			{
+				closest_dist = dist;
+				closest_point_index = i;
+			}
+		}
+		//closest point (gen3.5)
+		foreach(i; 0.._points.length)
+		{
+			if(i == closest_point_index )
+			{
+				inputs ~= 1.0;
+			} else {
+				inputs ~= 0.0;
+			}
 		}
 		
 		for( UnitType iter = UnitType.min; iter < UnitType.max; ++iter )
@@ -286,7 +312,7 @@ class TeamObj : Drawable
 		// total unit cost at point
 		foreach(total_cost; _unit_total_cost_at_points)
 		{
-			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;
+			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;  //TODO: make this a constant like a sane person
 		}
 		// enemy total cost at point
 		foreach(total_cost; _opponent._unit_total_cost_at_points)
@@ -311,6 +337,7 @@ class TeamObj : Drawable
 		return get_common_ai_inputs(unit);
 	}
 
+  //TODO: amke this more modular
 	int assign_command(Unit unit)
 	{
 		_num_orders_given++;
@@ -467,24 +494,34 @@ class TeamObj : Drawable
 		if(won_game)
 		{
 			writefln("-----------%s Won!   %d orders, %d builds----------", _name, _num_orders_given, _num_builds);
-			writefln("Training winner's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
-			_build_ai.train_net(true);
-			writefln("Training winner's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
-			_command_ai.train_net(true);
+			if(_train)
+			{
+				writefln("Training winner's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
+				_build_ai.train_net(true);
+				writefln("Training winner's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
+				_command_ai.train_net(true);
+			}
+	  
 			
-			writeln("Training loser's build AI to emulate winner:");
-			_opponent._build_ai.train_net_to_emulate(this._build_ai); 
-			writeln("Training loser's command AI to emulate winner");
-			_opponent._command_ai.train_net_to_emulate(this._command_ai);
-			
-			_opponent._build_ai  .save_net();
-			_opponent._command_ai.save_net();
+		    if(_opponent._train)
+		    {
+				writeln("Training loser's build AI to emulate winner:");
+				_opponent._build_ai.train_net_to_emulate(this._build_ai); 
+				writeln("Training loser's command AI to emulate winner");
+				_opponent._command_ai.train_net_to_emulate(this._command_ai);
+
+				_opponent._build_ai  .save_net();
+				_opponent._command_ai.save_net();
+		    }
 		} else {
 			writefln("-----------%s Lost!  %d orders, %d builds-----------", _name, _num_orders_given, _num_builds);
-			writefln("Training loser's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
-			_build_ai.train_net(false);
-			writefln("Training loser's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
-			_command_ai.train_net(false);
+			if(_train)
+			{
+				writefln("Training loser's build AI:  %d good builds, %d bad builds", _build_ai._good_decisions, _build_ai._bad_decisions);
+				_build_ai.train_net(false);
+				writefln("Training loser's command AI:  %d good commands, %d bad commands", _command_ai._good_decisions, _command_ai._bad_decisions);
+				_command_ai.train_net(false);
+			} 
 		}
 		
 		_build_ai  .save_net();
@@ -521,20 +558,20 @@ class TeamObj : Drawable
 
 
 
-void add_num_units_scaled_by_cost_to_array (int[][] count_array , real[]* neuron_input_array ) 
+void add_num_units_scaled_by_cost_to_array (int[][] count_array , ref real[] neuron_input_array ) 
 {
-	foreach(location; count_array )
+	foreach(ref location; count_array )
 	{
-		foreach( int type, count; location )
+		foreach( int type, ref count; location )
 		{
-			*neuron_input_array ~= num_units_scaled_by_cost( count, cast(UnitType) type );
+			neuron_input_array ~= num_units_scaled_by_cost( count, cast(UnitType) type );
 		}
 	}
 }
 
-const double UNIT_COST_SCALING_DIVISOR = get_unit_build_cost(UnitType.Battleship) * 10;
+const real UNIT_COST_SCALING_DIVISOR = get_unit_build_cost(UnitType.Battleship) * 10;
 
-double num_units_scaled_by_cost(int unit_count, UnitType unit_type)
+real num_units_scaled_by_cost(int unit_count, UnitType unit_type)
 {
 	return unit_count * get_unit_build_cost( unit_type ) / UNIT_COST_SCALING_DIVISOR;
 }

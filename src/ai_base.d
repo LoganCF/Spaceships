@@ -125,7 +125,7 @@ class BaseAI
 		_backprop = new BackPropagation(_neural_net, _cost);
 		
 		configure_backprop();
-		save_net();// debug
+		//save_net();// debug
 	}
 	
 	
@@ -205,7 +205,7 @@ class BaseAI
 	const double TRAINING_EPOCHS_FACTOR_EMULATE = 1000.0;
 
 	
-	void train_net(bool victory) //TODO: make the decision based on results of individual records
+	void train_net(bool victory) 
 	{
 		if(!g_savenets) return;
 	
@@ -241,7 +241,7 @@ class BaseAI
 		
 		int epochs = /+to!int( epoch_factor / inputs.length );
 		if (epochs == 0) epochs = +/1;
-		writefln("Training, %d epochs", epochs);
+		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
 		
 		void callback( uint currentEpoch, real currentError  )
 		{
@@ -276,7 +276,7 @@ class BaseAI
 				//make record victory
 				make_record(_record_queue.front, true);
 			} else 
-			if(score_diff < 0) 
+			if(score_diff <= 0) 
 			{
 				//make record loss
 				make_record(_record_queue.front, false);
@@ -315,7 +315,7 @@ class BaseAI
 	{
 		(is_correct ? _good_decisions : _bad_decisions)++;
 		auto debg = pending_record.decision;
-    auto debg2 = _neural_net.output.neurons.length;
+        auto debg2 = _neural_net.output.neurons.length;
     
 		real[] record = make_training_array( pending_record.decision, is_correct, _neural_net.output.neurons.length );
 		int num_duplicates = get_duplication_factor(is_correct);
@@ -329,7 +329,7 @@ class BaseAI
 	}
 	
 	const int dup_correct = 3;
-	const int dup_wrong   = 1;
+	const int dup_wrong   = 3;
 	int get_duplication_factor(bool is_correct)
 	{
 		return is_correct ? dup_correct : dup_wrong;
@@ -345,10 +345,12 @@ real[] make_training_array(int result, bool victory, int num_output_neurons)
 	{
 		return make_training_array_helper(result, num_output_neurons);
 	} else {
-		// used to return a random other index in the array
-		//int roll = random_in_range_excluding(0, num_output_neurons - 1, result);
+		
 		// now returns an array with all 1's except the decision made
-		return make_training_array_helper_inverse( result, num_output_neurons);
+		//return make_training_array_helper_inverse( result, num_output_neurons);
+    
+        int roll = random_in_range_excluding(0, num_output_neurons - 1, result);
+        return make_training_array_helper(roll, num_output_neurons);
 	}
 }
 

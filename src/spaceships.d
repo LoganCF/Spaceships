@@ -28,6 +28,9 @@ import factory_unit;
 import capture_point;
 import team;
 import team_manual;
+import team_random;
+import team_scripted_capper;
+import team_scripted_defender;
 import ai_build;
 import ai_command;
 import matchinfo;
@@ -68,12 +71,30 @@ struct NamedColor
 	string n;
 }
 
+enum AiType { NeuralNet, NeuralNetDontTrain, Random, Manual, ScriptedCapper, ScriptedDefender };
+
+struct PlayerIdentity
+{
+  string n;
+  Color c;
+  AiType type;
+  
+  this(string in_n, Color in_c, AiType in_type)
+  {
+	n = in_n;
+	c = in_c;
+	type = in_type;
+  }
+  
+}
+
 /+
 NamedColor[]  AI_colors = [  NamedColor(0xFF, 0x00, 0x00, "Red")
 							,NamedColor(0x46, 0x82, 0xB4, "SteelBlue") 
 							];
 	+/						
 
+/+
 NamedColor[]  AI_colors = [  NamedColor(0xFF, 0x00, 0x00, "Red")
 							,NamedColor(0x46, 0x82, 0xB4, "SteelBlue")
 							,NamedColor(0x7F, 0xFF, 0x00, "Chartreuse")
@@ -87,8 +108,54 @@ NamedColor[]  AI_colors = [  NamedColor(0xFF, 0x00, 0x00, "Red")
 							,NamedColor(0x40, 0x40 ,0x40, "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌")
 							];
 							
-							//NamedColor(0xDC, 0x14, 0x3C, "Crimson")
+							//,NamedColor(0xDC, 0x14, 0x3C, "Crimson")
+			  
+			  //,NamedColor(0xFF,0xCC,0x00, "Yellow")
+			  +/
+			  
+PlayerIdentity[]  ai_identities = [  
+			   PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.NeuralNet)
+							,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.NeuralNet)
+							,PlayerIdentity( "Chartreuse", Color(0x7F, 0xFF, 0x00), AiType.NeuralNet)
+			  ,PlayerIdentity( "Coral"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNet)
+			  ,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNet)
+			  ,PlayerIdentity( "DeepPink"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNet)
+			  ,PlayerIdentity( "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌" , Color(0x40, 0x40 ,0x40), AiType.NeuralNet)
+			  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.Random)
+							//,NamedColor(0x00, 0x64, 0x00, "DarkGreen")
+							//,NamedColor(0xFF, 0x8C, 0x00, "DarkOrange")
+							//,NamedColor(0x55, 0x6B, 0x2F, "DarkOliveGreen")
+							,PlayerIdentity("DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
+			  //,PlayerIdentity("Blue"         , Color(0x00, 0x00, 0xFF), AiType.ScriptedDefender)
+			  ,PlayerIdentity( "YellowOrange", Color(0xFF, 0xE0, 0x80), AiType.NeuralNetDontTrain)
+			  ,PlayerIdentity("DarkTurquiose", Color(0x80, 0xF0, 0xE0), AiType.NeuralNetDontTrain)
+			  //,PlayerIdentity("Blue"         , Color(0x80, 0x80, 0xFF), AiType.NeuralNetDontTrain)
+							];
+			  
+PlayerIdentity manual_identity = PlayerIdentity( "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌",forest_green,AiType.Manual);
+							
+							//,NamedColor(0xDC, 0x14, 0x3C, "Crimson")
 
+//factory function for various kinds of TeamObj
+TeamObj make_team(TeamID id, PlayerIdentity player_identity)
+{
+  final switch(player_identity.type)
+  {
+	case AiType.NeuralNet:
+	  return new TeamObj   (id, player_identity.c, player_identity.n);
+	case AiType.NeuralNetDontTrain:
+	  return new TeamObj   (id, player_identity.c, player_identity.n, false);
+	case AiType.Random:
+	  return new RandomTeam(id, player_identity.c, player_identity.n);
+	case AiType.Manual:
+	  return new PlayerTeam(id, player_identity.c, player_identity.n);
+	case AiType.ScriptedCapper:
+	  return new CapperTeam(id, player_identity.c, player_identity.n);
+	case AiType.ScriptedDefender:
+	  return new DefenderTeam(id, player_identity.c, player_identity.n);
+  }
+}
+			  
 
 //this should go in an env object or something
 TeamObj[] g_teams = [
@@ -100,7 +167,7 @@ TeamObj[] g_teams = [
 RectangleShape[] g_ticket_bars = [
 								   null,
 								   null
-  							     ];
+							     ];
 								 
 RectangleShape g_timer_bar;
 				 
@@ -111,7 +178,7 @@ bool g_is_manual_game = false; // TODO: this should be one of the parameters to 
 				 
 void main(string[] args)
 {
-    auto window = new RenderWindow(VideoMode(window_width,window_height),"AI: Artifical Idiocy");
+	auto window = new RenderWindow(VideoMode(window_width,window_height),"AI: Artifical Idiocy");
 	
 	while( window.isOpen() )
 	{
@@ -154,9 +221,9 @@ void run_tourney(string [] args, RenderWindow window)
 	
 	writefln("loaded state %s, %s", iter_vals[0], iter_vals[1]);
 	
-	for( int challenger = to!int(iter_vals[0]) ; challenger < AI_colors.length && window.isOpen(); ++challenger )
+	for( int challenger = to!int(iter_vals[0]) ; challenger < ai_identities.length && window.isOpen(); ++challenger )
 	{
-		for( int opponent = to!int(iter_vals[1]) ; opponent < AI_colors.length && window.isOpen(); ++opponent )
+		for( int opponent = to!int(iter_vals[1]) ; opponent   < ai_identities.length && window.isOpen(); ++opponent )
 		{
 			if(challenger != opponent)
 			{
@@ -166,8 +233,8 @@ void run_tourney(string [] args, RenderWindow window)
 				if(g_teams[0] !is null) { destroy(g_teams[0]); }
 				if(g_teams[1] !is null) { destroy(g_teams[1]); }
 				
-				g_teams[0] = new TeamObj(TeamID.One,     AI_colors[challenger].c , AI_colors[challenger].n);
-				g_teams[1] = new TeamObj(TeamID.Two,     AI_colors[opponent  ].c , AI_colors[opponent  ].n);
+				g_teams[0] = make_team(TeamID.One, ai_identities[challenger]);
+				g_teams[1] = make_team(TeamID.Two, ai_identities[opponent]  );
 				run_match(args, window);
 				GC.collect();
 			}
@@ -189,15 +256,15 @@ void run_manual(string [] args, RenderWindow window)
 	
 	g_is_manual_game = true;
 	
-	for( int opponent = 0 ; opponent < AI_colors.length && window.isOpen(); ++opponent )
+	for( int opponent = 0 ; opponent < ai_identities.length && window.isOpen(); ++opponent )
 	{
 	
 		if(g_teams[0] !is null) { destroy(g_teams[0]); }
 		if(g_teams[1] !is null) { destroy(g_teams[1]); }
 		
-		PlayerTeam pt = new PlayerTeam(TeamID.One,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
+		PlayerTeam pt =  to!PlayerTeam( make_team(TeamID.One, manual_identity) );
 		g_teams[0]    = pt;
-		g_teams[1]    = new TeamObj   (TeamID.Two,     AI_colors[opponent  ].c , AI_colors[opponent].n);
+		g_teams[1]    = make_team(TeamID.Two, ai_identities[opponent]);
 		
 		pt.set_window(window);
 		run_match(args, window);
@@ -220,8 +287,8 @@ void run_duel(string [] args, RenderWindow window)
 		if(g_teams[0] !is null) { destroy(g_teams[0]); }
 		if(g_teams[1] !is null) { destroy(g_teams[1]); }
 		
-		g_teams[0]    = new TeamObj(TeamID.One,     AI_colors[player_1].c , AI_colors[player_1].n);
-		g_teams[1]    = new TeamObj(TeamID.Two,     AI_colors[player_2].c , AI_colors[player_2].n);
+		g_teams[0]    = make_team(TeamID.One, ai_identities[player_1] );
+		g_teams[1]    = make_team(TeamID.Two, ai_identities[player_2] );
 		
 		run_match(args[2..$], window);
 		GC.collect();
@@ -248,20 +315,20 @@ void run_duel_manual(string [] args, RenderWindow window)
 		if(g_teams[0] !is null) { destroy(g_teams[0]); }
 		if(g_teams[1] !is null) { destroy(g_teams[1]); }
 		
-    PlayerTeam pt;
-    
-    if(!swap_positions) 
-    {      
-      pt            = new PlayerTeam(TeamID.One,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
-      g_teams[0]    = pt;
-      g_teams[1]    = new TeamObj   (TeamID.Two,     AI_colors[opponent  ].c , AI_colors[opponent].n);
-    } else {
-      g_teams[0]    = new TeamObj   (TeamID.One,     AI_colors[opponent  ].c , AI_colors[opponent].n);
-      pt            = new PlayerTeam(TeamID.Two,     forest_green            , "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌"   );
-      g_teams[1]    = pt;
-    }
-    
-    swap_positions = !swap_positions;
+	PlayerTeam pt;
+	
+	if(!swap_positions) 
+	{      
+	  pt            = to!PlayerTeam( make_team(TeamID.One, manual_identity) );
+	  g_teams[0]    = pt;
+	  g_teams[1]    = make_team(TeamID.Two, ai_identities[opponent]);
+	} else {
+	  g_teams[0]    = make_team(TeamID.One, ai_identities[opponent]);
+	  pt            =  to!PlayerTeam( make_team(TeamID.Two, manual_identity) );
+	  g_teams[1]    = pt;
+	}
+	
+	swap_positions = !swap_positions;
 		
 		pt.set_window(window);
 		run_match(args[1..$], window);
@@ -332,7 +399,7 @@ void run_match(string [] args, RenderWindow window)
 	}
 	for( int i = 0; i < num_red_lightships ; ++i )
 	{
-		dots ~= make_unit(UnitType.Corvette   , g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
+		dots ~= make_unit(UnitType.Destroyer   , g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
 	}
 	for( int i = 0; i < num_red_bigships   ; ++i )
 	{
@@ -351,7 +418,7 @@ void run_match(string [] args, RenderWindow window)
 	}
 	for( int i = 0; i < num_blu_lightships ; ++i )
 	{
-		dots ~= make_unit(UnitType.Corvette   , g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
+		dots ~= make_unit(UnitType.Destroyer   , g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
 	}
 	for( int i = 0; i < num_blu_bigships  ; ++i )
 	{
@@ -433,18 +500,18 @@ void run_match(string [] args, RenderWindow window)
 	Time previous = the_clock.getElapsedTime();
 	writeln("Righto.");
 	
-    while( window.isOpen() && !game_over )
-    {
+	while( window.isOpen() && !game_over )
+	{
 		//writeln("loopin'");
-        Event event;
+		Event event;
 
-        while(window.pollEvent(event))
-        {
-            if(event.type == event.EventType.Closed)
-            {
-                window.close();
-            }
-        }
+		while(window.pollEvent(event))
+		{
+			if(event.type == event.EventType.Closed)
+			{
+				window.close();
+			}
+		}
 		
 		if(Keyboard.isKeyPressed(Keyboard.Key.LAlt) || Keyboard.isKeyPressed(Keyboard.Key.RAlt) ) 
 		{
@@ -532,7 +599,7 @@ void run_match(string [] args, RenderWindow window)
 		{
 			dot.unit_update( grid , dt);
 			//TODO: unit should just handle this itself
-			if(dot._needs_orders && !dot._player_controlled)
+			if(dot._needs_orders && !dot._player_controlled && !dot.is_dead)
 			{
 				dot.get_orders();
 				dot._destination = capture_points[dot._destination_id]._pos;
@@ -563,7 +630,7 @@ void run_match(string [] args, RenderWindow window)
 		
 		
 		//draw everything
-        window.clear();
+		window.clear();
 		
 		foreach(dot; dots)
 		{
@@ -600,8 +667,8 @@ void run_match(string [] args, RenderWindow window)
 		draw_ticket_bars(window);
 		draw_timer_bar  (window, game_time_limit, game_timer);
 		
-        window.display();
-    }
+		window.display();
+	}
 	
 	g_teams[0].cleanup_ais();
 	g_teams[1].cleanup_ais();

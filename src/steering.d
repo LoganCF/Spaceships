@@ -119,7 +119,7 @@ class Dot
 		
 		//writefln("updatin'. I'm at %f, %f", _pos.x , _pos.y);
 		Vector2d desired_vel = Vector2d(0,0);
-		void delegate (Unit u) do_steering_delegate = delegate void(Unit u) 
+		scope void delegate (Unit u) do_steering_delegate = delegate void(Unit u) 
 		{
 			Dot otherdot = cast(Dot) u;
 			if (otherdot != this)

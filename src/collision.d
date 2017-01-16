@@ -52,7 +52,7 @@ class CollisionGrid
 	}
 	
 	
-	void collision_query(Vector2d position, double radius, void delegate(Unit) process )
+	void collision_query(Vector2d position, double radius, scope void delegate(Unit) process )
 	{
 	
 		double radius_sq = square(radius);
@@ -72,7 +72,7 @@ class CollisionGrid
 	}
 	
 	
-	void collision_query_grid_only( Vector2d position, double radius, void delegate(Unit) process )
+	void collision_query_grid_only( Vector2d position, double radius, scope void delegate(Unit) process )
 	{
 	
 		int min_grid_x = to_grid_x(position.x - radius);
