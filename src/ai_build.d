@@ -77,11 +77,11 @@ class BuildAI : BaseAI
 		{
 			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
 		}
-		_backprop.setProgressCallback(&callback, 10 );
+		_backprop.setProgressCallback(&callback, 100 );
 	
 		_backprop.epochs = 0;
-		_backprop.learningRate = 0.05;
-		_backprop.momentum = 0.5;
+		_backprop.learningRate = 0.01;
+		_backprop.momentum = 0.2;
 		_backprop.errorThreshold = 0.000001;
 	}
 	

@@ -108,7 +108,7 @@ class Unit  : Dot
 		_player_controlled = in_player_controlled;
 		
 		//temp?
-		_order_duration = 10.0 * 100.0 / get_unit_build_cost(_type);
+		_order_duration = 60.0 * UNIT_COST_BASE / get_unit_build_cost(_type);
 		
 	}
 	
@@ -310,7 +310,7 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 		//////////////////////////////
 		case UnitType.Interceptor:
 			new_unit = new Unit( x, y, 
-								 200.0, 400.0, 2.5, ShapeType.Triangle, in_color, // speed, accel, size, color
+								 200.0, 400.0, 3, ShapeType.Triangle, in_color, // speed, accel, size, color
 								 LIGHT_UNIT_HARD_RADIUS, LIGHT_UNIT_SOFT_RADIUS,  LIGHT_UNIT_HARD_RADIUS_PUSH, LIGHT_UNIT_SOFT_RADIUS_PUSH, Lookahead.SHORT,  // steering params
 								 in_team, type, 400.0, ArmorType.Light, 125.0, 1.5, 20.0, DamageType.Frag, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
@@ -352,8 +352,9 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 			
 		case UnitType.Miner:
 			new_unit = new Unit( x, y, 
-								 100.0, 100.0, 4, ShapeType.Diamond, in_color, // speed, accel, size, color
-								 square(12)/2, square(30.0)/2,  square(24)/2, square(45.0)/2, Lookahead.MEDIUM,  // steering params
+								 100.0, 100.0, 5, ShapeType.Diamond, in_color, // speed, accel, size, color
+								 MEDIUM_UNIT_HARD_RADIUS, MEDIUM_UNIT_SOFT_RADIUS,  MEDIUM_UNIT_HARD_RADIUS_PUSH, MEDIUM_UNIT_SOFT_RADIUS_PUSH, Lookahead.MEDIUM, // steering params
+								 //square(12)/2, square(30.0)/2,  square(24)/2, square(45.0)/2, Lookahead.MEDIUM,  // steering params
 								 in_team, type, 600.0, ArmorType.Light, 150.0, 1.0, 30.0, DamageType.Universal, 0.075, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
 			

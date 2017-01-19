@@ -13,6 +13,7 @@ import std.random;
 import std.math;
 import std.container.dlist;
 import std.container.util;
+import std.algorithm.comparison;	
 
 import core.memory;
 
@@ -60,6 +61,11 @@ class BaseAI
 	int[] _output_records;// records node # of decisions made
 	//real[][] _training_metrics; // used to set training outputs
 	
+	//as above, but for emulation data (used to train other networks based on the behavior of this one)
+	real[][]  _input_records_emulation;
+	real[][]  _training_output_emulation; // "correct" output of all output nodes based on how the decision worked out.
+	int[] _output_records_emulation;// records node # of decisions made
+	
 	double _last_timestamp;
 	double _time_window; // time between making a decision and recording sucess or failure based on delta(points controlled - enemy points controlled)
 	int _last_score;
@@ -68,6 +74,8 @@ class BaseAI
 	
 	int _good_decisions = 0;
 	int _bad_decisions  = 0;
+	
+	double CHANCE_OF_RANDOM_ACTION = 0.0;
 	
 	char[] _filename;
 
@@ -89,7 +97,7 @@ class BaseAI
 	void reset_records()
 	{
 		_input_records. length  = 0;
-		_output_records.length  = 0; 
+		_output_records.length  = 0;
 		_training_output.length = 0;
 		_good_decisions = 0;
 		_bad_decisions  = 0;
@@ -148,6 +156,13 @@ class BaseAI
 		}+/
 		
 		load_or_initialize_net();
+		
+		if(uniform01() < CHANCE_OF_RANDOM_ACTION)
+		{
+			int random_result = to!int(uniform(0,_neural_net.output.neurons.length));
+			record_decision(inputs, random_result);
+			return random_result;
+		}
 		
 		assert(inputs.length == _neural_net.input.neurons.length, "Input is the wrong size: " ~ text!int(inputs.length) ~ " instead of " ~ text!int(_neural_net.input.neurons.length));
 		//nn get
@@ -224,7 +239,7 @@ class BaseAI
 	void train_net_to_emulate(BaseAI other)
 	{
 		if(!g_savenets) return;
-		do_training( other._input_records, other._training_output, TRAINING_EPOCHS_FACTOR_EMULATE );
+		do_training( other._input_records_emulation, other._training_output_emulation, TRAINING_EPOCHS_FACTOR_EMULATE );
 	}
 	
 	//TODO? void train_net_not_to_emulate(BaseAI other)?
@@ -239,15 +254,16 @@ class BaseAI
 			return;
 		}
 		
-		int epochs = /+to!int( epoch_factor / inputs.length );
-		if (epochs == 0) epochs = +/1;
+		int epochs = min(inputs.length, 5000);
+		/+to!int( epoch_factor / inputs.length );
+		if (epochs == 0) epochs = 1=+/;
 		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
 		
 		void callback( uint currentEpoch, real currentError  )
 		{
 			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
 		}
-		_backprop.setProgressCallback(&callback, 1 );
+		_backprop.setProgressCallback(&callback, 100 );
 		
 		_backprop.epochs += epochs;
 		_backprop.train(inputs, training_outputs);
@@ -323,13 +339,22 @@ class BaseAI
 		{
 			_training_output ~= record;
 			// in some cases, we do additional replication later for some decision types (like more expensive units int the build AI)
+			// based on the values in output records
 			_output_records  ~= pending_record.decision; 
 			_input_records   ~= pending_record.inputs;
+			
+			if(is_correct)
+			{
+				_training_output_emulation ~= record;
+				_output_records_emulation  ~= pending_record.decision; 
+				_input_records_emulation   ~= pending_record.inputs;
+			}
 		}
 	}
 	
-	const int dup_correct = 3;
-	const int dup_wrong   = 3;
+	//TODO: this is silly, we could just change the learning rate.
+	const int dup_correct = 1;
+	const int dup_wrong   = 1;
 	int get_duplication_factor(bool is_correct)
 	{
 		return is_correct ? dup_correct : dup_wrong;

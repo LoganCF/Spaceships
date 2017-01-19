@@ -120,7 +120,7 @@ PlayerIdentity[]  ai_identities = [
 			  ,PlayerIdentity( "Coral"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNet)
 			  ,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNet)
 			  ,PlayerIdentity( "DeepPink"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNet)
-			  ,PlayerIdentity( "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌" , Color(0x40, 0x40 ,0x40), AiType.NeuralNet)
+			  ,PlayerIdentity( "DarkGrey" , Color(0x40, 0x40 ,0x40), AiType.NeuralNet)
 			  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.Random)
 							//,NamedColor(0x00, 0x64, 0x00, "DarkGreen")
 							//,NamedColor(0xFF, 0x8C, 0x00, "DarkOrange")
@@ -132,7 +132,7 @@ PlayerIdentity[]  ai_identities = [
 			  //,PlayerIdentity("Blue"         , Color(0x80, 0x80, 0xFF), AiType.NeuralNetDontTrain)
 							];
 			  
-PlayerIdentity manual_identity = PlayerIdentity( "▀▀▄▐▄█▀█▄▌█▀ ▌▌▌",forest_green,AiType.Manual);
+PlayerIdentity manual_identity = PlayerIdentity( "DarkGrey",forest_green,AiType.Manual);
 							
 							//,NamedColor(0xDC, 0x14, 0x3C, "Crimson")
 
@@ -302,7 +302,6 @@ void run_duel(string [] args, RenderWindow window)
 
 void run_duel_manual(string [] args, RenderWindow window)
 {
-	//"▀▀▄▐▄█▀█▄▌█▀ ▌▌▌" 
 	
 	g_is_manual_game = true;
   
