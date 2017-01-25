@@ -1,6 +1,7 @@
 
 This is simulation where Neural Networks play a Real-Time Strategy game against each other.
 
+You can see a video of it in action here: https://youtu.be/2T_Yk-HM9xg
 
 #How to Build:
 You will need the DMD compiler, available from: https://dlang.org/download.html#dmd
