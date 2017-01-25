@@ -2,7 +2,7 @@
 This is simulation where Neural Networks play a Real-Time Strategy game against each other.
 
 -------------------------------------------------------------------------------------
-#How to Build:
+##How to Build:
 You will need the DMD compiler, available from: https://dlang.org/download.html#dmd
 and DSFML from: http://jebbs.github.io/DSFML/downloads.html
 
@@ -15,7 +15,7 @@ Change the %dmd% variable in build.bat to reflect the location where you downloa
 
 
 -------------------------------------------------------------------------------------
-The Game:
+##The Game:
 Each player starts with a Mothership (large diamond) at opposing corners of the screen.
 There are 12 capture points (+ symbols) on the screen.  Players gain an Income based on the number of Points they control, which determines how fast the Mothership can build new units.
 Controlling more points than the opponent makes thier victory counter (bar at the top of the screen) shrink. 
@@ -39,12 +39,12 @@ There are 6 types of ships in the game:
       Mohterships have a lot of health, and moderate attack range.  They have Large Ship armor (vulnerable to squares)
       Miners have Small Ship armor (vulnerable to triangles)
 
-Observer Controls:
+#Observer Controls:
 -------------------------------------------------------------------------------------
   When watching the AI's play against each other, you can press Alt + End to start the next match if the current one is uninteresting (as many will be if the NN's haven't been training for very long)
   
 
-Manual Controls:
+#Manual Controls:
 -------------------------------------------------------------------------------------
 By running play_spaceships.bat, you can manually control a fleet against the Neural Net AIs.
   in this mode, press the Q, W, E, A, S, D keys to change the type of unit currently being produced.
