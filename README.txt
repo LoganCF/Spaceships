@@ -2,7 +2,7 @@
 This is simulation where Neural Networks play a Real-Time Strategy game against each other.
 
 -------------------------------------------------------------------------------------
-How to Build:
+#How to Build:
 You will need the DMD compiler, available from: https://dlang.org/download.html#dmd
 and DSFML from: http://jebbs.github.io/DSFML/downloads.html
 
