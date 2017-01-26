@@ -22,8 +22,10 @@ There are 4 batch files included which will run the game in one of the four mode
 The first parameter indicates the game mode:
 - tourney: all AIs play against each other in a round-robin fasion.
 - play:    Manual Control, loops through all AI opponents.
-- duel # #: watch 2 AIs repreatedly play against each other (specified by the next 2 parameters)
-- nemesis #: repeatedly play agaisnt a specific AI (specified by the next parameter)
+- duel (followed by two player numbers): watch 2 AIs repreatedly play against each other (specified by the next 2 parameters)
+- nemesis (followed by a player number): repeatedly play agaisnt a specific AI (specified by the next parameter)
+
+The last parameter is the game speed.  I reccommend between 2.5 and 4.0 for manual control, and between 5.0 and 10.0 for watching.
 
 #The Game:
 Each player starts with a Mothership (large diamond) at opposing corners of the screen.
