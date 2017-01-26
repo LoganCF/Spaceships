@@ -78,7 +78,7 @@ By running play_spaceships.bat, you can manually control a fleet against the Neu
 # The AIs
  
 In the current build (as of 2017 1 26), there are 9 AIs that the game will rotate through.
- -Red, Steel-Blue, Chartruse, Coral, Dark-Violet, and Deep-Pink are Neural Net AIs
- -DarkGrey is a Neural Net AI that also learns from watching the games you manually controll.
- -Yellow-Orange is a scripted bot that picks all actions randomly
- -Dark-Teal is a scripted bot that aggressively focuses on capturing points.
+ - Red, Steel-Blue, Chartruse, Coral, Dark-Violet, and Deep-Pink are Neural Net AIs
+ - DarkGrey is a Neural Net AI that also learns from watching the games you manually controll.
+ - Yellow-Orange is a scripted bot that picks all actions randomly
+ - Dark-Teal is a scripted bot that aggressively focuses on capturing points.
