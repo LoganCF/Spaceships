@@ -15,6 +15,15 @@ Copy the DLLs from the DSFML/lib folder into the Spaceships/ folder.
 Change the %dmd% variable in build.bat to reflect the location where you downloaded DMD.
 
 
+#Running the Program:
+The game can be run in different modes from the command line.
+There are 4 batch files included which will run the game in one of the four modes.
+
+The first parameter indicates the game mode:
+- tourney: all AIs play against each other in a round-robin fasion.
+- play:    Manual Control, loops through all AI opponents.
+- duel # #: watch 2 AIs repreatedly play against each other (specified by the next 2 parameters)
+- nemesis #: repeatedly play agaisnt a specific AI (specified by the next parameter)
 
 #The Game:
 Each player starts with a Mothership (large diamond) at opposing corners of the screen.
@@ -22,23 +31,26 @@ There are 12 capture points (+ symbols) on the screen.  Players gain an Income b
 Controlling more points than the opponent makes thier victory counter (bar at the top of the screen) shrink. 
 A player wins by reducing thier opponent's victory counter to 0.
 
-There are 6 types of ships in the game:
-  Combat Ships:
-    2 types of Small Ships: Small Ships are fast and deal high damage for thier cost.
-      Interceptor (small triangle)
-      Destroyer   (small sqaure)  
-    2 types of Large Ships: Large Ships are slow and costly to produce, but have a significantly longer attack range.
-      Cruiser     (large triangle)
-      Battleship  (large square)
-    The shape of a combat ship indicates what size of ship it is effective against.
-     Triangles deal double damage against Small Ships.
-     Squares deal double damage against Large Ships.
-  Economic Ships:
-    Mothership (large diamond): Builds units.  Multiple Motherships increase the overall speed of unit produciton.
-    Miner      (small diamond): Increases the income when close to a point.  Multiple miners on the same point get diminishing returns.
-    Economic ships are ineffective in combat, but deal equal damage to all targets.
-      Mohterships have a lot of health, and moderate attack range.  They have Large Ship armor (vulnerable to squares)
-      Miners have Small Ship armor (vulnerable to triangles)
+There are 6 types of ships in the game, each fitting into one of three roles: Anti-Light, Anti-Heavy, and Economic.  
+There is a Light and Heavy ship type for each role.  A ship's "weight" is indicated by its size, and its role is indicated by its shape.
+
+Light Ships are fast and deal higher damage for thier cost than equivalent Heavy ships. 
+  - Interceptor (small triangle, Anti-Light)  
+  - Destroyer   (small square,   Anti-Heavy)   
+  - Miner       (small diamond,  Economic  ) 
+  
+Heavy Ships are slow and costly to produce, but have a significantly longer attack range than Light Ships. 
+  - Cruiser     (large triangle, Anti-Light) 
+  - Battleship  (large square,   Anti-Heavy) 
+  - Mothership  (large diamond,  Economic  )    
+
+
+Combat ships deal double damage to either Light or Heavy ships, depending on thier role.  
+Economic ships are generally ineffective in combat, but deal equal damage to all targets.   
+  -  Motherships build units.  Multiple Motherships increase the overall speed of unit produciton logarithmically. 
+  -  Miners increases income when close to a point.  Multiple miners on the same point get diminishing returns. 
+   
+      
 
 ##Observer Controls:
   When watching the AI's play against each other, you can press Alt + End to start the next match if the current one is uninteresting (as many will be if the NN's haven't been training for very long)
@@ -48,16 +60,25 @@ There are 6 types of ships in the game:
 By running play_spaceships.bat, you can manually control a fleet against the Neural Net AIs.
   in this mode, press the Q, W, E, A, S, D keys to change the type of unit currently being produced.
   These keys form a grid based on the properties of the unit type:
-    The first row  (Q, W, E) produce Small Ships
-    The second row (A, S, D) produce Large Ships
+   - The first row  (Q, W, E) produce Small Ships
+   - The second row (A, S, D) produce Large Ships
     
-    The first column  (Q, A) produces units which are effective against Small Ships.
-    The second column (W, S) produces units which are effective against Large Ships.
-    The third column  (E, D) produces economic units.
+   - The first column  (Q, A) produces units which are effective against Small Ships.
+   - The second column (W, S) produces units which are effective against Large Ships.
+   - The third column  (E, D) produces economic units.
     
   To control your units:
-    Right-Click to instruct any currently selected units to move to the location of your mouse pointer.
+   - Right-Click to instruct any currently selected units to move to the location of your mouse pointer.
   
-    Left-Click and drag to select all units in a circle. (this will be chagned to a square after an update to the collision-detection system)
-    Press Space to select all non-economic units near your cursor.
-    Hold shift while selecting to add units to your current selection.
+   - Left-Click and drag to select all units in a circle. (this will be chagned to a square after an update to the collision-detection system)
+   - Press Space to select all non-economic units near your cursor.
+   -Hold shift while selecting to add units to your current selection.
+   
+   
+ # The AIs
+ 
+ In the current build (as of 2017 1 26), there are 9 AIs that the game will rotate through.
+ -Red, Steel-Blue, Chartruse, Coral, Dark-Violet, and Deep-Pink are Neural Net AIs
+ -DarkGrey is a Neural Net AI that also learns from watching the games you manually controll.
+ -Yellow-Orange is a scripted bot that picks all actions randomly
+ -Dark-Teal is a scripted bot that aggressively focuses on capturing points.
