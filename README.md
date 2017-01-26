@@ -3,6 +3,8 @@ This is simulation where Neural Networks play a Real-Time Strategy game against 
 
 You can see a video of it in action here: https://youtu.be/2T_Yk-HM9xg
 
+If you want to run the program, you can either download and extract NNSpaceships_build_2017_1_26.zip, or build it yourself.
+
 #How to Build:
 You will need the DMD compiler, available from: https://dlang.org/download.html#dmd
 and DSFML from: http://jebbs.github.io/DSFML/downloads.html
