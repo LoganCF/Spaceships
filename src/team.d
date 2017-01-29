@@ -37,7 +37,7 @@ const double INCOME_PER_POINT = 20.0;
 class TeamObj : Drawable
 {
 	double _income = 0.0;
-	double _income_per_factory;
+	double _income_per_factory = 0.0;
 	double _tickets = g_starting_tickets;
 	
 	Color  _color;
@@ -54,9 +54,10 @@ class TeamObj : Drawable
 	double[] _unit_total_cost_at_points; // set by capture point objects
 	int[]    _unit_built_counts;
 	int[]    _unit_lost_counts;
+	real     _total_army_value = 0.0; //TODO: this needs to be updated for the inital mothership. shuold there be a add_unit_to_team function?
 	
-	BuildAI   _build_ai;
-	CommandAI _command_ai;
+	BaseAI _build_ai;//TODO: interface for build/ command ai?
+	BaseAI _command_ai;
 	
 	int _num_factories    = 0;
 	int _num_orders_given = 0;
@@ -73,12 +74,11 @@ class TeamObj : Drawable
   
 	bool _is_player_controlled = false;
   
-	bool _train;
+	bool _train; // whether or not we train the NN at the end of each match.
 	
 	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true ) // will take AI objects.
 	{
-		_build_ai   = new BuildAI(in_name ~ "_build.txt"    , BUILD_AI_WINDOW ); 
-		_command_ai = new CommandAI(in_name ~ "_command.txt", COMMAND_AI_WINDOW );
+		init_ais(in_name);
 		_color = in_color;
 		_id = in_id;
 		_name = in_name.dup();
@@ -88,9 +88,16 @@ class TeamObj : Drawable
 		_unit_lost_counts.length  = NUM_UNIT_TYPES;
 	}
 	
+	//for constructor
+	void init_ais(inout char[] in_name)
+	{
+		_build_ai   = new BuildAI(in_name ~ "_build.txt"    , BUILD_AI_WINDOW ); 
+		_command_ai = new CommandAI(in_name ~ "_command.txt", COMMAND_AI_WINDOW );
+	}
+	
 	~this()
 	{
-		_factories = null;
+		_factories = null; // this may avoid a memleak TODO: test this.
 	}
 	
 	static const double MINER_INCOME_FRACTION = 0.25;
@@ -133,8 +140,12 @@ class TeamObj : Drawable
 			}
 		}
 		
-		_income_per_factory = _income /log2(_num_factories+1); // so Mothership spamming isn't overpowered
-		
+		if(_num_factories > 0)
+		{
+			_income_per_factory = _income / log2(_num_factories+1); // so Mothership spamming isn't overpowered
+		} else {
+			_income_per_factory = 0.0;
+		}
 		
 		//assert(_opponent !is null );
 		
@@ -505,12 +516,19 @@ class TeamObj : Drawable
 			
 		    if(_opponent._train)
 		    {
-				writeln("Training loser's build AI to emulate winner:");
-				_opponent._build_ai.train_net_to_emulate(this._build_ai); 
-				writeln("Training loser's command AI to emulate winner");
-				_opponent._command_ai.train_net_to_emulate(this._command_ai);
-
-				_opponent._build_ai  .save_net();
+			
+				if(_build_ai._emulatable)
+				{
+					writeln("Training loser's build AI to emulate winner:");
+					_opponent._build_ai.train_net_to_emulate(this._build_ai); 
+				}
+				if(_command_ai._emulatable)
+				{
+					writeln("Training loser's command AI to emulate winner");
+					_opponent._command_ai.train_net_to_emulate(this._command_ai);
+				}
+				
+				_opponent._build_ai  .save_net(); // TODO: these should be saved in a handle_endgame function in spaceships.d
 				_opponent._command_ai.save_net();
 		    }
 		} else {
@@ -524,10 +542,9 @@ class TeamObj : Drawable
 			} 
 		}
 		
-		_build_ai  .save_net();
+		_build_ai  .save_net(); // TODO: these should be saved in a handle_endgame function in spaceships.d
 		_command_ai.save_net();
 		
-		// TODO: reset game state (from main?).
 	}
 	
 	void notify_dead_factory()

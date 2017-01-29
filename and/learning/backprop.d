@@ -106,6 +106,10 @@ void feedForward ( real [] inputs) {
 
 		no.value = neuralNetwork.output.activationFunction.f(sum);
 	
+		/*if(no.value >1.0)//debug
+		{
+			write("double wtf all across the sky.");
+		}*/
 	}
 
 
@@ -117,7 +121,7 @@ void feedForward ( real [] inputs) {
      Parameters: the inputs to the network
 
   */
-  private void updateWeights(real [] inputs ) /// Parameters: the inputs to the network
+  void updateWeights(real [] inputs ) /// Parameters: the inputs to the network
   {
 
 		Layer [] tempLayers = neuralNetwork.hidden;
@@ -204,6 +208,7 @@ void feedForward ( real [] inputs) {
 		{
 			no.error = 0;
 
+			/+ error = derivative of SSE * derivative of activation function +/
 			no.error = ( expected[i] - no.value ) * neuralNetwork.output.activationFunction.fDerivative(no.value );
 			/+++/assert(!isNaN(no.error));
 		}
@@ -334,6 +339,20 @@ void feedForward ( real [] inputs) {
 
 		return ret;
 
+	}
+	
+	real [] lastOutput()
+	{
+		real [] ret;
+		 
+		foreach ( Neuron n; neuralNetwork.output.neurons )
+		{
+
+			ret ~= n.value;
+
+		}
+
+		return ret;
 	}
 
 

@@ -32,6 +32,9 @@ class SigmoidActivationFunction : IActivationFunction
 	 assert(!isNaN(val),"sigmoid. garbage in");
 	 real retval = ( 1.0 / ( 1.0 + exp( -val ) ) );
 	 assert(!isNaN(retval),"sigmoid. garbage out");
+	 if(retval > 1.0){ // debug
+		writeln("sigmoid too bigmoid.");
+	 }
     return retval;
 
   }

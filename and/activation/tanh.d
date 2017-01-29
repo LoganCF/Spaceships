@@ -23,6 +23,8 @@ class TanhActivationFunction : IActivationFunction
   /** (e^x - e^-x) / (e^x + e^-x) */
   real f ( real val ) 
   {
+	if(tanh(val) > 1.0 )
+	  write("tanh of %+#.3f is %+#.3f ;", val, tanh(val) );//debug
     return tanh(val);
   }
 

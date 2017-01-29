@@ -13,7 +13,9 @@ module and.activation.model.iactivation;
 enum ActivationId
   {
     SIGMOID,
-    TANH
+    TANH,
+	LINEAR, /+++/
+	LEAKY_RELU /+++/
   }
 
   /**

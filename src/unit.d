@@ -121,6 +121,7 @@ class Unit  : Dot
 		{
 			_is_dead = true; // kaboom!
 			_team._unit_lost_counts[_type]++;
+			_team._total_army_value -= get_unit_build_cost(_type);
 			if(_destination_id != -1)
 			{
 				_team._unit_destination_counts[_destination_id][_type]--;

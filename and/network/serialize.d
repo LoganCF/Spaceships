@@ -15,6 +15,9 @@ import and.network.layer;
 import and.network.neuron;
 import and.activation.model.iactivation;
 import and.activation.sigmoid;
+import and.activation.tanh;
+import and.activation.linear;
+import and.activation.leaky_relu;
 import and.platform;
 
 
@@ -113,7 +116,12 @@ NeuralNetwork loadNetwork(char [] path )
 
 	final switch ( af )
 	{
-		case ActivationId.SIGMOID : afunc = new SigmoidActivationFunction;
+		case ActivationId.SIGMOID    : afunc = new SigmoidActivationFunction;   break;
+		case ActivationId.TANH       : afunc = new TanhActivationFunction;      break;
+		case ActivationId.LINEAR     : afunc = new LinearActivationFunction;    break;
+		case ActivationId.LEAKY_RELU : afunc = new LeakyReLUActivationFunction; break;
+		
+		
 	}
 
 	writeln("sure am loading");

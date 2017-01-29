@@ -76,9 +76,12 @@ public
   import and.activation.model.iactivation;
   import and.activation.sigmoid;
   import and.activation.tanh;
+  import and.activation.linear; /+++/
+  import and.activation.leaky_relu; /+++/
   
   import and.learning.model.ilearning;
   import and.learning.backprop;
+  import and.learning.backprop_mod_reinforcement; /+++/
 
   import and.network.neuralnetwork;
   import and.network.neuron;

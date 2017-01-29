@@ -5,7 +5,7 @@ alias void delegate ( uint currentEpoch, real currentError ) trainingProgressCal
 int nodeWinner( real [] ins )
 {
   int n = 0;
-  real temp = 0.0;
+  real temp = real.infinity * -1;
   for ( int i  = 0 ; i < ins.length; i++ )
     {
       if ( ins[i] > temp ) 

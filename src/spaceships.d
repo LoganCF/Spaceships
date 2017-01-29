@@ -31,6 +31,7 @@ import team_manual;
 import team_random;
 import team_scripted_capper;
 import team_scripted_defender;
+import team_mod_reinforcement;
 import ai_build;
 import ai_command;
 import matchinfo;
@@ -71,7 +72,7 @@ struct NamedColor
 	string n;
 }
 
-enum AiType { NeuralNet, NeuralNetDontTrain, Random, Manual, ScriptedCapper, ScriptedDefender };
+enum AiType { NeuralNet, NeuralNetDontTrain, NeuralNetModReinforcement , Random, Manual, ScriptedCapper, ScriptedDefender };
 
 struct PlayerIdentity
 {
@@ -114,22 +115,25 @@ NamedColor[]  AI_colors = [  NamedColor(0xFF, 0x00, 0x00, "Red")
 			  +/
 			  
 PlayerIdentity[]  ai_identities = [  
-			   PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.NeuralNet)
-							,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.NeuralNet)
-							,PlayerIdentity( "Chartreuse", Color(0x7F, 0xFF, 0x00), AiType.NeuralNet)
-			  ,PlayerIdentity( "Coral"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNet)
-			  ,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNet)
-			  ,PlayerIdentity( "DeepPink"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNet)
-			  ,PlayerIdentity( "DarkGrey" , Color(0x40, 0x40 ,0x40), AiType.NeuralNet)
-			  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.Random)
+						   PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.NeuralNet)
+						  ,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.NeuralNet)
+						  ,PlayerIdentity( "Chartreuse", Color(0x7F, 0xFF, 0x00), AiType.NeuralNet)
+						  //,PlayerIdentity( "Coral"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNet)
+						  //,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNet)
+						  //,PlayerIdentity( "DeepPink"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNet)
+						  ,PlayerIdentity( "DarkGrey"  , Color(0x60, 0x60 ,0x60), AiType.NeuralNet)
+						  ,PlayerIdentity( "Coral_MRL"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModReinforcement)
+						  ,PlayerIdentity( "DarkViolet_MRL", Color(0x94, 0x00, 0xD3), AiType.NeuralNetModReinforcement)
+						  ,PlayerIdentity( "DeepPink_MRL"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNetModReinforcement)
+						  ,PlayerIdentity( "DarkOliveGreen_MRL",Color(0x55,0x6B,0x2F), AiType.NeuralNetModReinforcement)
+						  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.Random)
 							//,NamedColor(0x00, 0x64, 0x00, "DarkGreen")
 							//,NamedColor(0xFF, 0x8C, 0x00, "DarkOrange")
-							//,NamedColor(0x55, 0x6B, 0x2F, "DarkOliveGreen")
-							,PlayerIdentity("DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
-			  //,PlayerIdentity("Blue"         , Color(0x00, 0x00, 0xFF), AiType.ScriptedDefender)
-			  ,PlayerIdentity( "YellowOrange", Color(0xFF, 0xE0, 0x80), AiType.NeuralNetDontTrain)
-			  ,PlayerIdentity("DarkTurquiose", Color(0x80, 0xF0, 0xE0), AiType.NeuralNetDontTrain)
-			  //,PlayerIdentity("Blue"         , Color(0x80, 0x80, 0xFF), AiType.NeuralNetDontTrain)
+						  ,PlayerIdentity("DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
+						  //,PlayerIdentity("Blue"         , Color(0x00, 0x00, 0xFF), AiType.ScriptedDefender)
+						  //,PlayerIdentity( "YellowOrange", Color(0xFF, 0xE0, 0x80), AiType.NeuralNetDontTrain)
+						  //,PlayerIdentity("DarkTurquiose", Color(0x80, 0xF0, 0xE0), AiType.NeuralNetDontTrain)
+						  //,PlayerIdentity("Blue"         , Color(0x80, 0x80, 0xFF), AiType.NeuralNetDontTrain)
 							];
 			  
 PlayerIdentity manual_identity = PlayerIdentity( "DarkGrey",forest_green,AiType.Manual);
@@ -145,6 +149,8 @@ TeamObj make_team(TeamID id, PlayerIdentity player_identity)
 	  return new TeamObj   (id, player_identity.c, player_identity.n);
 	case AiType.NeuralNetDontTrain:
 	  return new TeamObj   (id, player_identity.c, player_identity.n, false);
+	case AiType.NeuralNetModReinforcement:
+		return new ReinforcementLearningTeam(id, player_identity.c, player_identity.n);
 	case AiType.Random:
 	  return new RandomTeam(id, player_identity.c, player_identity.n);
 	case AiType.Manual:

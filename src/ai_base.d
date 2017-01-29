@@ -20,8 +20,6 @@ import core.memory;
 import and.api;
 import and.platform;
 
-string SAVE_DIR = "X:\\Neural_nets";
-
 bool g_savenets = true; //TODO: this could be removed.
 
 const double BUILD_AI_WINDOW   = 90.0;
@@ -30,11 +28,11 @@ const double COMMAND_AI_WINDOW = 30.0;
 struct PendingRecord
 {
 	int decision;
-	int score;
+	double score;
 	double timestamp;
 	real[] inputs;
 	
-	this(int dec, int sc, double tim, real[] inpt)
+	this(int dec, double sc, double tim, real[] inpt)
 	{
 		decision  = dec;
 		score     = sc;
@@ -68,14 +66,16 @@ class BaseAI
 	
 	double _last_timestamp;
 	double _time_window; // time between making a decision and recording sucess or failure based on delta(points controlled - enemy points controlled)
-	int _last_score;
+	double _last_score = 0.0;
 	DList!PendingRecord _record_queue;		
-	//int _next_record_index;
+	
+	bool _emulatable = true; // TODO: this is a patch until I can refactor out the whole emulation thing into a different class, or support it for everything.
+	
 	
 	int _good_decisions = 0;
 	int _bad_decisions  = 0;
 	
-	double CHANCE_OF_RANDOM_ACTION = 0.0;
+	double CHANCE_OF_RANDOM_ACTION = 0.005;
 	
 	char[] _filename;
 
@@ -140,7 +140,7 @@ class BaseAI
 	abstract void configure_backprop();
 	
 	/**
-		gets a decision form the NN and records the input paramters & decision for training.
+		gets a decision from the NN and records the input paramters & decision for training.
 		asserts that the NN has the same number of input neurons as the "input" parameter
 	*/
 	int get_decision(real[] inputs)
@@ -195,7 +195,6 @@ class BaseAI
 		}
 		
 		char[] path = getcwd() ~ "\\" ~ _filename;
-		//char[] path = SAVE_DIR ~ "\\" ~ _filename;
 		writefln("Saving Neural Net:  %s", path);
 		if (! saveNetwork(_neural_net, path ) ) 
 			writefln("Saving NN failed, path= %s", path);
@@ -280,13 +279,13 @@ class BaseAI
 	}
 	
 	//update all recrod whose windows have elasped based on chagne in score
-	void update_records(double now, int score )
+	void update_records(double now, double score )
 	{
 		_last_score = score;
 		_last_timestamp = now;
 		while(!_record_queue.empty && now - _record_queue.front.timestamp >= _time_window)
 		{
-			int score_diff = score - _record_queue.front.score;
+			int score_diff = to!int(score) - to!int(_record_queue.front.score);
 			if(score_diff > 0)
 			{
 				//make record victory
@@ -310,7 +309,8 @@ class BaseAI
 		{
 			/+make_record(_record_queue.front, victory);
 			_record_queue.removeFront();+/
-			int score_diff = _last_score - _record_queue.front.score;
+			//writeln("%d, %d", _last_score, _record_queue.front.score);
+			int score_diff = to!int(_last_score) - to!int(_record_queue.front.score);
 			if(score_diff > 0)
 			{
 				//make record victory

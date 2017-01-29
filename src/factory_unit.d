@@ -72,6 +72,7 @@ class FactoryUnit : Unit
 			}
 			
 			_team._unit_built_counts[_current_build]++;
+			_team._total_army_value += get_unit_build_cost(_current_build);
 			
 			UnitType prev_build = _current_build;
 			_current_build = determine_next_build();
