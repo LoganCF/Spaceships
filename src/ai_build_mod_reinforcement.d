@@ -34,7 +34,7 @@ class ModifiedReinforcementBuildAI : ModifiedReinforcementBaseAI
 	void weight_records(bool victory)
 	{
 		// make duplicate records for more expensive units.
-		/+size_t training_len = _input_records.length;
+		/+size_t training_len = _training_input.length;
 		for(size_t i = 0; i < training_len; ++i)
 		{
 			UnitType unit_type = cast(UnitType)(_output_records[i]);  // cast(UnitType)nodeWinner(_output_records[i]) ;
@@ -42,10 +42,10 @@ class ModifiedReinforcementBuildAI : ModifiedReinforcementBaseAI
 			size_t num_dups = to!size_t( unit_cost / UNIT_COST_BASE ) - 1;
 			for(size_t j = 0; j < num_dups; ++j)
 			{
-				_input_records    ~= _input_records[i];
+				_training_input    ~= _training_input[i];
 				_training_output ~= _training_output[i]; 
 			}
-		}+/ // TODO: why crash?
+		}+/ 
 	}
 	
 	

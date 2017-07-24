@@ -19,207 +19,114 @@ import core.memory;
 
 import and.api;
 import and.platform;
+import nn_manager;
+import record_keeper;
+import unit;
 
-bool g_savenets = true; //TODO: this could be removed.
 
+//TODO: move these constants to ai subclasses?
 const double BUILD_AI_WINDOW   = 90.0;
-const double COMMAND_AI_WINDOW = 30.0;
+const double COMMAND_AI_WINDOW = 15.0;
 
-struct PendingRecord
-{
-	int decision;
-	double score;
-	double timestamp;
-	real[] inputs;
-	
-	this(int dec, double sc, double tim, real[] inpt)
-	{
-		decision  = dec;
-		score     = sc;
-		timestamp = tim;
-		inputs    = inpt;
-	}
-}
 
 
 
 
 class BaseAI
 {
-	NeuralNetwork _neural_net;
-	IActivationFunction _activation_fn;
 	
+	//bool _emulatable = true; 
 	
-	CostFunction _cost;
-	BackPropagation _backprop;
-
-	
-	real[][]  _input_records;
-	real[][]  _training_output; // "correct" output of all output nodes based on how the decision worked out.
-	int[] _output_records;// records node # of decisions made
-	//real[][] _training_metrics; // used to set training outputs
-	
-	//as above, but for emulation data (used to train other networks based on the behavior of this one)
-	real[][]  _input_records_emulation;
-	real[][]  _training_output_emulation; // "correct" output of all output nodes based on how the decision worked out.
-	int[] _output_records_emulation;// records node # of decisions made
-	
-	double _last_timestamp;
-	double _time_window; // time between making a decision and recording sucess or failure based on delta(points controlled - enemy points controlled)
-	double _last_score = 0.0;
-	DList!PendingRecord _record_queue;		
-	
-	bool _emulatable = true; // TODO: this is a patch until I can refactor out the whole emulation thing into a different class, or support it for everything.
-	
-	
-	int _good_decisions = 0;
-	int _bad_decisions  = 0;
+	NNManagerBase _nn_mgr;
+	RecordKeeper _record_keeper;
 	
 	double CHANCE_OF_RANDOM_ACTION = 0.005;
 	
-	char[] _filename;
 
-	this( char[] filename, double time_window )
+	this( NNManagerBase in_nnm) 
 	{
-		_filename = "nets\\" ~ filename;
-		/+if(exists(_filename))
+		_nn_mgr = in_nnm;
+		if( !_nn_mgr.load_net() ) 
 		{
-			load_net();
-		} else {
-			init_net();
-		}+/
-		
-		//_record_queue = new DList!PendingRecord(0);
-		//_record_queue = make!(DList!PendingRecord);
-		_time_window  = time_window;
-	}
-	
-	void reset_records()
-	{
-		_input_records. length  = 0;
-		_output_records.length  = 0;
-		_training_output.length = 0;
-		_good_decisions = 0;
-		_bad_decisions  = 0;
-	}
-	
-	void load_or_initialize_net()
-	{
-		if(_neural_net is null)
-		{
-			if(exists(_filename))
-			{
-				load_net();
-			} else {
-				init_net();
-			}
+			init_nnm();
 		}
-	}
-	
-	
-	abstract void init_net();
-	
-	void do_init(int num_inputs, int num_hidden_neurons, int num_outputs)
-	{
-		//make layers and NN
-		IActivationFunction act_fn = new SigmoidActivationFunction;
-		Layer input  = new Layer(num_inputs,0);
-		Layer[] hidden = [ new Layer(num_hidden_neurons, num_inputs, act_fn) ];
-		Layer output = new Layer(num_outputs, num_hidden_neurons, act_fn);
 		
-		_neural_net = new NeuralNetwork(input, hidden, output);
-		
-		_cost = new SSE(); // sum-squared errors
-		_backprop = new BackPropagation(_neural_net, _cost);
+		_record_keeper = new RecordKeeper();
 		
 		configure_backprop();
-		//save_net();// debug
+		setup_ai(in_nnm);
+		
 	}
 	
+	//TODO: 
+	// calls functions in record keeper and manager
+	void reset_records()
+	{
+		/+
+		_training_input .length = 0; //TODO: nnm
+		_training_output.length = 0; //TODO: classifier
+		_good_decisions = 0; //TODO: classifier
+		_bad_decisions  = 0; //TODO: classifier
+		_record_keeper.clear_records();
+		_nn_mgr.clear_training_data();
+		+/
+	}
+	
+	void setup_ai(NNManagerBase nnm)
+	{
+		_nn_mgr = nnm;
+		_nn_mgr._record_keeper = _record_keeper;
+		//_nn_mgr.init_net();//TODO: input, hidden, output.  probably should be load_or_init.
+		/*if(!_nn_mgr.load_net()) // already done in ctor (does this make sense?)
+		{
+			init_nnm();
+		}*/
+		adjust_NN_params();
+	}
+	
+	abstract void init_nnm();
+	
+	abstract void adjust_NN_params();
 	
 	abstract void configure_backprop();
+	
+	// returns the number of times the record should appear in the training set
+	abstract int get_num_duplicates(real[] inputs, int output);
+	
+	//abstract size_t get_num_record_duplicates(UnitType type);
 	
 	/**
 		gets a decision from the NN and records the input paramters & decision for training.
 		asserts that the NN has the same number of input neurons as the "input" parameter
 	*/
+	//TODO: move some of the logic to NNM.
+	//TODO: interact correctly with Strategy.
+	//TODO: how do I get unittype here? (get from a function decided by move/build ai?) (get from inputs/output, get_num_duplicates is implemented by command/move AI)
 	int get_decision(real[] inputs)
-	{
-		/+if(_neural_net is null)
-		{
-			if(exists(_filename))
-			{
-				load_net();
-			} else {
-				init_net();
-			}
-		}+/
-		
-		load_or_initialize_net();
+	{	
+		/+load_or_initialize_net();+/
 		
 		if(uniform01() < CHANCE_OF_RANDOM_ACTION)
 		{
-			int random_result = to!int(uniform(0,_neural_net.output.neurons.length));
-			record_decision(inputs, random_result);
+			int random_result = to!int(uniform(0,_nn_mgr._neural_net.output.neurons.length));
+			_record_keeper.record_decision(inputs, get_num_duplicates(inputs, random_result), random_result, -1); //TODO: strategy here
 			return random_result;
 		}
 		
-		assert(inputs.length == _neural_net.input.neurons.length, "Input is the wrong size: " ~ text!int(inputs.length) ~ " instead of " ~ text!int(_neural_net.input.neurons.length));
-		//nn get
-		real[] results = _backprop.computeOutput(inputs);
-		int retval = nodeWinner( results );
+		int retval = _nn_mgr.query_net(inputs);
+		
 		//add to records
-		if(true /+g_savenets+/)
-		{
-			record_decision(inputs, retval);
-		}
+		_record_keeper.record_decision(inputs, get_num_duplicates(inputs, retval), retval, -1);// subclasses may specify a strategy here, but we just send -1 for "no strategy"
 		
 		return retval;
 	}
 	
-	// create a pending record, we transcribe it to the training records when we know if it was a good decision.
-	void record_decision(real[] inputs, int choice)
-	{
-		//TODO: also record the time and score
-		//_input_records  ~= inputs;
-		//_output_records ~= choice;
-		_record_queue.insert( PendingRecord(choice, _last_score, _last_timestamp, inputs) );
-	}
 	
-	void save_net()
-	{
-		//write( _filename, _neural_net.serialize() );
-		if(!g_savenets)
-		{
-			return;
-		}
-		
-		char[] path = getcwd() ~ "\\" ~ _filename;
-		writefln("Saving Neural Net:  %s", path);
-		if (! saveNetwork(_neural_net, path ) ) 
-			writefln("Saving NN failed, path= %s", path);
-	}
 	
-	void load_net()
-	{
-		//string netstring = readText(_filename);
-		_neural_net = loadNetwork(getcwd() ~ "\\" ~ _filename); 
-		//_input_layer = _neural_net.input;
-		//_hidden_layers = _neural_net.hidden;
-		//_output_layer = _neural_net.output;
-		
-		_cost = new SSE();
-		_backprop = new BackPropagation(_neural_net,_cost);
-		configure_backprop();
-	}
 	
-	// make these non-const members?
-	const double TRAINING_EPOCHS_FACTOR_WON     = 2000.0;
-	const double TRAINING_EPOCHS_FACTOR_LOST    = 1500.0;
-	const double TRAINING_EPOCHS_FACTOR_EMULATE = 1000.0;
 
 	
-	void train_net(bool victory) 
+	/+void train_net(bool victory) 
 	{
 		if(!g_savenets) return;
 	
@@ -232,182 +139,71 @@ class BaseAI
 			_training_output ~= make_training_array(output, victory, _neural_net.output.neurons.length);
 		}*/
 		
-		do_training(_input_records, _training_output, factor);
+		do_training(_training_input, _training_output, factor);
 	}
 	
 	void train_net_to_emulate(BaseAI other)
 	{
 		if(!g_savenets) return;
-		do_training( other._input_records_emulation, other._training_output_emulation, TRAINING_EPOCHS_FACTOR_EMULATE );
-	}
+		do_training( other._training_input_emulation, other._training_output_emulation, TRAINING_EPOCHS_FACTOR_EMULATE );
+	}+/
 	
-	//TODO? void train_net_not_to_emulate(BaseAI other)?
 	
-	void do_training(real[][] inputs, real[][] training_outputs, double epoch_factor)
+
+	
+	
+	
+	//close all records whose windows have elasped
+	void update_records(double now, int territory_diff, real score )
 	{
-		assert(inputs.length == training_outputs.length);
-		
-		if( inputs.length == 0 )
-		{
-			writeln("No Training Data for Neural Network!");
-			return;
-		}
-		
-		int epochs = min(inputs.length, 5000);
-		/+to!int( epoch_factor / inputs.length );
-		if (epochs == 0) epochs = 1=+/;
-		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
-		
-		void callback( uint currentEpoch, real currentError  )
-		{
-			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
-		}
-		_backprop.setProgressCallback(&callback, 100 );
-		
-		_backprop.epochs += epochs;
-		_backprop.train(inputs, training_outputs);
-		writeln("done training");
-	}
-	
-	void cleanup()
-	{
-		_input_records  .length = 0;
-		_training_output.length = 0;
-		_output_records .length = 0;
-		// writeln("cleaning arrays");
-		GC.collect();
-	}
-	
-	//update all recrod whose windows have elasped based on chagne in score
-	void update_records(double now, double score )
-	{
-		_last_score = score;
-		_last_timestamp = now;
-		while(!_record_queue.empty && now - _record_queue.front.timestamp >= _time_window)
-		{
-			int score_diff = to!int(score) - to!int(_record_queue.front.score);
-			if(score_diff > 0)
-			{
-				//make record victory
-				make_record(_record_queue.front, true);
-			} else 
-			if(score_diff <= 0) 
-			{
-				//make record loss
-				make_record(_record_queue.front, false);
-			}
-			
-			_record_queue.removeFront();
-		}
+		_record_keeper.update_records(now, territory_diff, score);
 	}
 	
 	// game is over, so update all pending records based on change in score
 	// last score reported in update_records is used as current score.
-	void update_records_endgame(bool victory)
+	void update_records_endgame(bool victory, int territory_diff, real score)
 	{
-		while(!_record_queue.empty)
-		{
-			/+make_record(_record_queue.front, victory);
-			_record_queue.removeFront();+/
-			//writeln("%d, %d", _last_score, _record_queue.front.score);
-			int score_diff = to!int(_last_score) - to!int(_record_queue.front.score);
-			if(score_diff > 0)
-			{
-				//make record victory
-				make_record(_record_queue.front, true);
-			} else 
-			if(score_diff < 0 || !victory) // if score decreased, or (stayed the same and you lost)
-			{
-				//make record loss
-				make_record(_record_queue.front, false);
-			}
-			
-			_record_queue.removeFront();
-		}
+		_record_keeper.update_records_endgame(victory, territory_diff, score);
 	}
 	
 	
-	void make_record(PendingRecord pending_record, bool is_correct )
+	
+	
+	//TODO: call-throughs to NNM
+	void make_training_data( BaseAI opponent)
 	{
-		(is_correct ? _good_decisions : _bad_decisions)++;
-		auto debg = pending_record.decision;
-        auto debg2 = _neural_net.output.neurons.length;
-    
-		real[] record = make_training_array( pending_record.decision, is_correct, _neural_net.output.neurons.length );
-		int num_duplicates = get_duplication_factor(is_correct);
-		for( int i = 0 ; i < num_duplicates; ++i)
-		{
-			_training_output ~= record;
-			// in some cases, we do additional replication later for some decision types (like more expensive units int the build AI)
-			// based on the values in output records
-			_output_records  ~= pending_record.decision; 
-			_input_records   ~= pending_record.inputs;
-			
-			if(is_correct)
-			{
-				_training_output_emulation ~= record;
-				_output_records_emulation  ~= pending_record.decision; 
-				_input_records_emulation   ~= pending_record.inputs;
-			}
-		}
+		_nn_mgr.make_training_data(opponent._nn_mgr);
 	}
 	
-	//TODO: this is silly, we could just change the learning rate.
-	const int dup_correct = 1;
-	const int dup_wrong   = 1;
-	int get_duplication_factor(bool is_correct)
+	
+	void train_net()
 	{
-		return is_correct ? dup_correct : dup_wrong;
+		_nn_mgr.train_net();
 	}
+	
+	//TODO: My abstraction is leaking!
+	void record_external_decision(real[] inputs, int choice, int strategy = -1)
+	{
+		_record_keeper.record_decision(inputs, get_num_duplicates(inputs, choice), choice, strategy);
+	}
+
+	string get_training_header(){
+		return _nn_mgr.get_training_header();
+	}
+	
+	void save_net()
+	{
+		_nn_mgr.save_net();
+	}
+	
+	void cleanup(){
+		_nn_mgr.cleanup();
+	}
+	
 		
 }
 
 
-//TODO: make this a member funtion
-real[] make_training_array(int result, bool victory, int num_output_neurons)
-{
-	if(victory)
-	{
-		return make_training_array_helper(result, num_output_neurons);
-	} else {
-		
-		// now returns an array with all 1's except the decision made
-		//return make_training_array_helper_inverse( result, num_output_neurons);
-    
-        int roll = random_in_range_excluding(0, num_output_neurons - 1, result);
-        return make_training_array_helper(roll, num_output_neurons);
-	}
-}
-
-real[] make_training_array_helper(int index_where_a_1_goes, int num_output_neurons)
-{
-	real[] retval;
-	retval.length = num_output_neurons;
-	retval[] = 0.0;
-	retval[index_where_a_1_goes] = 1.0;
-	return retval;
-}
-
-real[] make_training_array_helper_inverse(int index_where_a_0_goes, int num_output_neurons)
-{
-	real[] retval;
-	retval.length = num_output_neurons;
-	retval[] = 1.0;
-	retval[index_where_a_0_goes] = 0.0;
-	return retval;
-}
-
-
-int random_in_range_excluding(int min, int max, int not_this_one)
-{
-	assert(max > min + 1);
-	int roll = to!int(floor(uniform01!(float)() * (max - min - 1))) + min;
-	if ( roll >= not_this_one)
-	{
-		roll += 1;
-	}
-	return roll;
-}
 
 real sigmoid(real in_val)
 {

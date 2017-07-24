@@ -18,6 +18,15 @@ import collision;
 import unit;
 import factory_unit;
 
+import ai_base;
+import ai_build;
+import ai_command;
+import nn_manager;
+import nn_manager_copycat;
+
+import and.api;
+import and.platform; 
+
 import dsfml.graphics;
 import dsfml.system;
 
@@ -43,7 +52,7 @@ class PlayerTeam : TeamObj
 	{
 		super( in_id, in_color, in_name );
 		
-	_is_player_controlled = true;
+		_is_player_controlled = true;
 	
 		_selection_circle = new CircleShape();
 		_selection_circle.outlineThickness = 1.0f;
@@ -61,20 +70,33 @@ class PlayerTeam : TeamObj
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )
 	{
-	if(building_unit._current_build != UnitType.None)
-	{
-	  return building_unit._current_build;
-	} else {
-	  return UnitType.Interceptor;
+		if(building_unit._current_build != UnitType.None)
+		{
+			return building_unit._current_build;
+		} else {
+			return UnitType.Interceptor;
+		}
+		
 	}
+	
+	//yes, this is a manual team, but we train a neural net to do what it does!
+	override void init_ais(inout char[] in_name)
+	{
+		
+		NNManagerBase build_nnm = new NNManagerCopycat(in_name ~ "_build.txt"    ,new SigmoidActivationFunction());
+		_build_ai   = new BuildAI( build_nnm ); 
+		
+		
+		NNManagerBase command_nnm = new NNManagerCopycat(in_name ~ "_command.txt",new SigmoidActivationFunction());
+		_command_ai = new CommandAI( command_nnm  );
 		
 	}
 	
 	override void update( CollisionGrid grid, double dt )
 	{
 		
-	_command_ai.load_or_initialize_net();
-	_build_ai  .load_or_initialize_net();
+		/+_command_ai.load_or_initialize_net();
+		_build_ai  .load_or_initialize_net();+/
 	
 		// left-click selection
 		if(!_selecting)
@@ -246,11 +268,11 @@ class PlayerTeam : TeamObj
 	}
 	
 	
-	//TODO: this is same as base_ai.handle_endgame with oms estrings different, abstract out hte similar stuff
-	override void handle_endgame(bool won_game)
+	//TODO: this is same as base_ai.handle_endgame with some strings different, abstract out the similar stuff
+	/+override void handle_endgame(bool won_game)
 	{
-		_build_ai  .load_or_initialize_net();
-		_command_ai.load_or_initialize_net();
+		/+_build_ai  .load_or_initialize_net();
+		_command_ai.load_or_initialize_net();+/
 		
 		_game_over = true;
 		if(won_game)
@@ -266,8 +288,8 @@ class PlayerTeam : TeamObj
 			writeln("Training loser's command AI to emulate winner");
 			_opponent._command_ai.train_net_to_emulate(this._command_ai);
 	  
-	 _opponent._build_ai  .save_net();
-	  _opponent._command_ai.save_net();
+			_opponent._build_ai  .save_net();
+			_opponent._command_ai.save_net();
 		} else {
 			writefln("-----------%s Lost!  %d orders, %d builds-----------", _player_name, _num_orders_given, _num_builds);
 			writeln("Training loser's build AI:");
@@ -280,7 +302,7 @@ class PlayerTeam : TeamObj
 		_command_ai.save_net();
 		
 		// TODO: reset game state (from main?).
-	}
+	}+/
 }
 
 

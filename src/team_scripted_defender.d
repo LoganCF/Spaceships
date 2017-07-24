@@ -23,7 +23,7 @@ class DefenderTeam : TeamObj
 
   override int assign_command(Unit unit)
 	{ 
-    _command_ai.load_or_initialize_net();
+    /+_command_ai.load_or_initialize_net();+/
     
     int decision = unit._destination_id;
     double min_dist_sq = 10_000_000.0;  // arbitrary large initial values for finding minimums
@@ -63,7 +63,7 @@ class DefenderTeam : TeamObj
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )
 	{
-    _build_ai  .load_or_initialize_net();
+    /+_build_ai  .load_or_initialize_net();+/
     
     UnitType decision = UnitType.Cruiser;
     
@@ -75,8 +75,8 @@ class DefenderTeam : TeamObj
 	
 	override void update( CollisionGrid grid, double dt )
 	{
-    _command_ai.load_or_initialize_net();
-    _build_ai  .load_or_initialize_net();
+    /+_command_ai.load_or_initialize_net();
+    _build_ai  .load_or_initialize_net();+/
   
     super.update(grid, dt);
   }

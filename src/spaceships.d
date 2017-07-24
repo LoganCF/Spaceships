@@ -72,7 +72,8 @@ struct NamedColor
 	string n;
 }
 
-enum AiType { NeuralNet, NeuralNetDontTrain, NeuralNetModReinforcement , Random, Manual, ScriptedCapper, ScriptedDefender };
+enum AiType { NeuralNet, NeuralNetDontTrain, NeuralNetModReinforcement, 
+			  Random, Manual, ScriptedCapper, ScriptedDefender  };
 
 struct PlayerIdentity
 {
@@ -121,7 +122,7 @@ PlayerIdentity[]  ai_identities = [
 						  //,PlayerIdentity( "Coral"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNet)
 						  //,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNet)
 						  //,PlayerIdentity( "DeepPink"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNet)
-						  ,PlayerIdentity( "DarkGrey"  , Color(0x60, 0x60 ,0x60), AiType.NeuralNet)
+						  ,PlayerIdentity( "DarkGrey"  , Color(0x60, 0x60 ,0x60), AiType.NeuralNetDontTrain)
 						  ,PlayerIdentity( "Coral_MRL"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModReinforcement)
 						  ,PlayerIdentity( "DarkViolet_MRL", Color(0x94, 0x00, 0xD3), AiType.NeuralNetModReinforcement)
 						  ,PlayerIdentity( "DeepPink_MRL"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNetModReinforcement)
@@ -167,7 +168,7 @@ TeamObj make_team(TeamID id, PlayerIdentity player_identity)
 TeamObj[] g_teams = [
 					null,
 					null,
-					new TeamObj(TeamID.Neutral, Color.White, "Neutral" )
+					new TeamObj(TeamID.Neutral, Color.White, "" )
 				 ];
 
 RectangleShape[] g_ticket_bars = [
@@ -675,9 +676,9 @@ void run_match(string [] args, RenderWindow window)
 		window.display();
 	}
 	
-	g_teams[0].cleanup_ais();
+	g_teams[0].cleanup_ais(); //TODO: is this necessary? why was it necessary?
 	g_teams[1].cleanup_ais();
-	g_teams[2].cleanup_ais();
+	//g_teams[2].cleanup_ais();
 	
 	
 	

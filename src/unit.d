@@ -26,6 +26,8 @@ int g_unit_count = 0;
 enum ArmorType  {Light=0, Medium=1, Heavy=2, Any=3}
 enum DamageType {Frag=0, Explosive=1, AP=2, Universal=3}
 
+const double ORDER_DURATION = 15.0;
+
 const double[][] damage_type_matrix = [ [1.50, 0.75, 0.75],
 										[0.75, 1.50, 0.75],
 										[0.75, 0.75, 1.50],
@@ -108,7 +110,7 @@ class Unit  : Dot
 		_player_controlled = in_player_controlled;
 		
 		//temp?
-		_order_duration = 60.0 * UNIT_COST_BASE / get_unit_build_cost(_type);
+		_order_duration = ORDER_DURATION;//60.0 * UNIT_COST_BASE / get_unit_build_cost(_type);
 		
 	}
 	

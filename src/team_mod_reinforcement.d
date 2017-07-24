@@ -24,12 +24,17 @@ import unit;
 import factory_unit;
 
 import ai_base;
-import ai_command_mod_reinforcement;
-import ai_build_mod_reinforcement;
+import ai_build;
+import ai_command;
+import nn_manager;
+import nn_manager_mod_reinforcement;
+//import ai_command_mod_reinforcement;
+//import ai_build_mod_reinforcement;
 
 
 import dsfml.graphics;
 import dsfml.system;
+import and.api;
 
 
 class ReinforcementLearningTeam : TeamObj
@@ -54,18 +59,23 @@ class ReinforcementLearningTeam : TeamObj
 
 	override void init_ais(inout char[] in_name)
 	{
-		_build_ai   = new ModifiedReinforcementBuildAI(in_name ~ "_build.txt"    , BUILD_AI_WINDOW ); 
-		_command_ai = new ModifiedReinforcementCommandAI(in_name ~ "_command.txt", COMMAND_AI_WINDOW );
+		NNManagerBase build_nnm = new NNManagerModReinforcement(in_name ~ "_build.txt"    ,new SigmoidActivationFunction());
+		_build_ai   = new BuildAI( build_nnm ); 
+		
+		NNManagerBase command_nnm = new NNManagerModReinforcement(in_name ~ "_command.txt",new SigmoidActivationFunction());
+		_command_ai = new CommandAI( command_nnm  );
 	}
 	
+	/+
 	override void update_ai_records(double now)
 	{
 		//writeln(compute_score(this), compute_score(_opponent));
-		real score = compute_score(this) - compute_score(_opponent); 
+		real score = get_score_diff(); 
+		int terr_diff = get_territory_diff();
 		assert(!isNaN(score));
 		_build_ai  .update_records(now, score);
 		_command_ai.update_records(now, score);
-	}
+	}+/
 	
 	override int assign_command(Unit unit)
 	{
@@ -75,7 +85,7 @@ class ReinforcementLearningTeam : TeamObj
 		if( ((*_factories).length > 0 && unit == (*_factories)[0])
 		  ||((*_factories).length > 1 && unit == (*_factories)[1])) // TODO: this better
 		{
-			_last_output = _command_ai._backprop.lastOutput(); // to update display
+			_last_output = _command_ai._nn_mgr._backprop.lastOutput(); // to update display //TODO: bad oop
 			
 		}
 		return retval;
@@ -92,6 +102,8 @@ class ReinforcementLearningTeam : TeamObj
 				//writeln(i, _points.length);
 				Vector2!float offset = _id == TeamID.One ? Vector2!float(10.0, -20.0) : Vector2!float(10.0, 25.0);
 				label.position = to!(Vector2!float)(_points[i]._pos) + offset; 
+				label.position.x = to!int(label.position.x);
+				label.position.y = to!int(label.position.y);
 				label.setFont(_font); 
 				label.setCharacterSize(10);
 				label.setColor(_color);
@@ -116,7 +128,7 @@ class ReinforcementLearningTeam : TeamObj
 			}
 		}
 		
-		_score_disp.setString( format("%+#.3f",_command_ai._last_score) );
+		_score_disp.setString( format("%+#.3f",_command_ai._record_keeper._last_score) );
 		renderTarget.draw(_score_disp);
 		
 		super.draw(renderTarget, renderStates);
@@ -128,23 +140,4 @@ class ReinforcementLearningTeam : TeamObj
 
 
 
-// computes a score in the approximate range [-1.0, 1.0] It can go a bit over or under becasue we use ReLUs in the AI (which are not bound to that range)
-	// the opponent's score should be subtracted from this TODO: rename this function
-	real compute_score(TeamObj t)
-	{
-		// each metric is divided by a reasonable maxiumum
-		/* 	  1/3 * points_capped/12 points 
-			+ 1/3 * income / (income form 12 points + default income + 1 miner at each point)
-			+ 1/3 * army strength / 20 battleships
-		*/
-		//writefln("pts: %d, income: %f * %d, army: %f", t._num_points_owned, t._income_per_factory, t._num_factories, t._total_army_value);
-		assert(!isNaN(t._income_per_factory), "income is NaN" );
-		assert(!isNaN(t._total_army_value)  , "army is NaN" );
-		real retval = 1.0/3.0 * t._num_points_owned / NUM_CAPTURE_POINTS
-					+ 1.0/3.0 * t._income_per_factory * t._num_factories / (INCOME_BASE + INCOME_PER_POINT * NUM_CAPTURE_POINTS + INCOME_PER_POINT * TeamObj.MINER_INCOME_FRACTION * NUM_CAPTURE_POINTS )
-					+ 1.0/3.0 * t._total_army_value / (get_unit_build_cost(UnitType.Battleship) * 20) ;
-					
-		if(retval >  1.0){ retval =  1.0; }
-		if(retval < -1.0){ retval = -1.0; }
-		return retval;
-	}
+

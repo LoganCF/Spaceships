@@ -126,7 +126,7 @@ class FactoryUnit : Unit
 }
 
 
-const double UNIT_COST_BASE = 100.0;
+const double UNIT_COST_BASE = 200.0;
 
 //inelegant, but whatevs.
 double get_unit_build_cost( UnitType type )
@@ -134,22 +134,22 @@ double get_unit_build_cost( UnitType type )
 	final switch(type)
 	{
 		case UnitType.Interceptor:
-			return UNIT_COST_BASE * 2.0;
+			return UNIT_COST_BASE * 1.0;
 			break;
 		case UnitType.Destroyer:
-			return UNIT_COST_BASE * 6.0;
+			return UNIT_COST_BASE * 3.0;
 			break;
 		case UnitType.Cruiser:
-			return UNIT_COST_BASE * 12.0;
+			return UNIT_COST_BASE * 6.0;
 			break;
 		case UnitType.Battleship:
-			return UNIT_COST_BASE * 18.0;
+			return UNIT_COST_BASE * 9.0;
 			break;
 		case UnitType.Miner:
-			return UNIT_COST_BASE * 4.0;
+			return UNIT_COST_BASE * 2.0;
 			break;
 		case UnitType.Mothership:
-			return UNIT_COST_BASE * 36.0;
+			return UNIT_COST_BASE * 18.0;
 			break;
 		case UnitType.None:
 			assert(0);

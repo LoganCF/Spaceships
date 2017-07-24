@@ -100,7 +100,7 @@ class ModifiedReinforcementBaseAI : BaseAI
 	
 	override void train_net(bool victory) 
 	{
-		do_training(_input_records, _output_records, _training_scores);
+		do_training(_training_input, _output_records, _training_scores);
 	}
 	
 	//don't do emulation training
@@ -115,12 +115,12 @@ class ModifiedReinforcementBaseAI : BaseAI
 	{
 		_last_score = score;
 		_last_timestamp = now;
-		while(!_record_queue.empty && now - _record_queue.front.timestamp >= _time_window)
+		while(!_pending_record_queue.empty && now - _pending_record_queue.front.timestamp >= _time_window)
 		{
 			//make record 
-			make_record(_record_queue.front);
+			close_record(_pending_record_queue.front);
 			
-			_record_queue.removeFront();
+			_pending_record_queue.removeFront();
 		}
 	}
 	
@@ -130,17 +130,17 @@ class ModifiedReinforcementBaseAI : BaseAI
 	// TODO: shoud this be -1 or 1 based on victory/loss? or will that just confuse the poor robot?
 	override void update_records_endgame(bool victory)
 	{
-		while(!_record_queue.empty)
+		while(!_pending_record_queue.empty)
 		{
-			make_record(_record_queue.front);
+			close_record(_pending_record_queue.front);
 			
-			_record_queue.removeFront();
+			_pending_record_queue.removeFront();
 		}
 	}
 	
 	
 	
-	void make_record(PendingRecord pending_record)
+	void make_training_record(PendingRecord pending_record)
 	{
 		auto debg = pending_record.decision;
         auto debg2 = _neural_net.output.neurons.length;
@@ -151,7 +151,7 @@ class ModifiedReinforcementBaseAI : BaseAI
 		// in some cases, we do additional replication later for some decision types (like more expensive units int the build AI)
 		// based on the values in output records
 		_output_records  ~= pending_record.decision; 
-		_input_records   ~= pending_record.inputs;
+		_training_input   ~= pending_record.inputs;
 		
 		_training_scores ~= _last_score;
 		

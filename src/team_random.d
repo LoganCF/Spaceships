@@ -22,8 +22,8 @@ class RandomTeam : TeamObj
 
 	override int assign_command(Unit unit)
 	{ 
-		_command_ai.load_or_initialize_net();
-		int decision = uniform!"[)"(0,_command_ai._neural_net.output.neurons.length);
+		/+_command_ai.load_or_initialize_net();+/
+		int decision = uniform!"[)"(0,_command_ai._nn_mgr._neural_net.output.neurons.length);  //TODO: bad oop
 	
 		int old_dest = unit._destination_id;
 		int new_dest = decision;
@@ -39,7 +39,7 @@ class RandomTeam : TeamObj
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )
 	{
-		_build_ai  .load_or_initialize_net();
+		/+_build_ai  .load_or_initialize_net();+/
 		UnitType decision = to!UnitType( dice(18,6,3,2,9,1) );
 		record_build_decision(building_unit, decision);
 		return decision;		
@@ -47,8 +47,8 @@ class RandomTeam : TeamObj
 	
 	override void update( CollisionGrid grid, double dt )
 	{
-		_command_ai.load_or_initialize_net();
-		_build_ai  .load_or_initialize_net();
+		/+_command_ai.load_or_initialize_net();
+		_build_ai  .load_or_initialize_net();+/
 	  
 		super.update(grid, dt);
     }
