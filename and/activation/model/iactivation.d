@@ -31,3 +31,18 @@ interface IActivationFunction
   ActivationId id(); /// neccessary for serializing
 }
 
+
+string ActivationIdToStr(ActivationId id)
+{
+	final switch(id)
+	{
+		case ActivationId.SIGMOID:
+			return "Sigmoid";
+		case ActivationId.TANH:
+			return "Tanh";
+		case ActivationId.LINEAR:
+			return "Linear";
+		case ActivationId.LEAKY_RELU:
+			return "Leaky ReLU";
+	}
+}

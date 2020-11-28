@@ -39,18 +39,20 @@ class NNManagerClassifier : NNManagerBase
 		_cost = new SSE(); // sum-squared errors
 		_backprop = new BackPropagation(_neural_net, _cost);
 		
-		configure_backprop();
+		//configure_backprop(); adjust_nn_params is called by ai
 	}
 	
 	//TODO: decision # is returned by a function from the AI (So it can get strategy/choice)
 	//TODO: we could also get the delta_territory_diff with an abstract function so that subclasses can use delta_territory_diff/score. (use is_record_good instead?)
 	override void make_training_data_from_own_record( ref CompletedRecord record)
 	{
+		if (_ai.getResultFromRecord(record) == -1)
+			return;
 		if(record.delta_territory_diff > 0)
 		{
 			//make "correct" record
 			_good_decisions ++;
-			real[] output = make_training_array( record.decision, true, _neural_net.output.neurons.length );
+			real[] output = make_training_array( _ai.getResultFromRecord(record), true, _neural_net.output.neurons.length );
 			//replication, TODO: maybe this should be done elsewhere
 			for(int i = 0; i < record.num_duplicates; ++i)
 			{
@@ -63,7 +65,7 @@ class NNManagerClassifier : NNManagerBase
 		{
 			//make "incorrect" record
 			_bad_decisions++;
-			real[] output = make_training_array( record.decision, false, _neural_net.output.neurons.length );
+			real[] output = make_training_array( _ai.getResultFromRecord(record), false, _neural_net.output.neurons.length );
 			//TODO: replication (or is this handled by the AI?)
 			for(int i = 0; i < record.num_duplicates; ++i)
 			{
@@ -75,12 +77,13 @@ class NNManagerClassifier : NNManagerBase
 	
 	override void make_training_data_from_opponent_record(ref CompletedRecord record)
 	{
-		
+		if (_ai.getResultFromRecord(record) == -1)
+			return;
 		if(record.delta_territory_diff > 0)
 		{
 			//make "correct" record
 			//_good_decisions ++; not here. the opponent made the good decision
-			real[] output = make_training_array( record.decision, true, _neural_net.output.neurons.length );
+			real[] output = make_training_array( _ai.getResultFromRecord(record), true, _neural_net.output.neurons.length );
 			//TODO: replication (or is this handled by the AI?)
 			for(int i = 0; i < record.num_duplicates; ++i)
 			{
@@ -105,13 +108,9 @@ class NNManagerClassifier : NNManagerBase
 			return;
 		}
 		
-		int epochs = min(inputs.length, 5000);
+		int epochs = max(min(inputs.length, 5000),200);
 		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
 		
-		void callback( uint currentEpoch, real currentError  )
-		{
-			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
-		}
 		_backprop.setProgressCallback(&callback, 100 );
 		
 		_backprop.epochs += epochs;
@@ -123,7 +122,7 @@ class NNManagerClassifier : NNManagerBase
 	
 	
 	
-	override void configure_backprop(){} //Do nothing in this subclass
+	override void adjust_NN_params(){} //Do nothing in this subclass
 	
 	
 	override void cleanup()

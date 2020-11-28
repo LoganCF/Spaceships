@@ -4,18 +4,19 @@ import std.algorithm.comparison;
 import std.file;
 import std.random;
 
+import nn_manager;
+import record_keeper;
+
 import and.api;
 import and.platform; 
 
-import nn_manager;
-import record_keeper;
 
 
 
 class NNManagerModReinforcement : NNManagerBase
 {
 	real[] _training_scores; // array of what the score actually was a time after an order was executed, passed to the NN so it can calculate error
-	int[]  _output_records;  // array of which chice was made for each order
+	int[]  _output_records;  // array of which choice was made for each order
 
 	this(char[] filename, IActivationFunction actfn)
 	{
@@ -36,10 +37,11 @@ class NNManagerModReinforcement : NNManagerBase
 		_cost = new SSE(); // sum-squared errors
 		_backprop = new ModifiedReinforcementBackPropagation(_neural_net, _cost);
 		
-		configure_backprop();
+		//configure_backprop(); // asjust_nn_params is called from ai
 	}
 	
 	// mostly the same as the superclass's load_net, but it makes a different type of backprop object
+	// TODO: could use a factory method + overridden helper to avoid copy-pasta?
 	override bool load_net()
 	{
 		if(exists(_filename))
@@ -70,10 +72,12 @@ class NNManagerModReinforcement : NNManagerBase
 	// we treat our own records and opponent's records the same, so we do both in one place.
 	void make_training_data_internal(ref CompletedRecord record)
 	{
+		if (_ai.getResultFromRecord(record) == -1)
+			return;
 		for(int i = 0; i < record.num_duplicates; ++i)
 		{
 			_training_input  ~= record.inputs;	
-			_output_records  ~= record.decision;
+			_output_records  ~= _ai.getResultFromRecord(record);
 			_training_scores ~= record.score;
 		}
 	}
@@ -88,15 +92,11 @@ class NNManagerModReinforcement : NNManagerBase
 			return;
 		}
 		
-		int epochs = min(inputs.length, 5000);
+		int epochs = 25_000;//min(inputs.length, 5000);
 		/+to!int( epoch_factor / inputs.length );
 		if (epochs == 0) epochs = 1=+/;
 		writefln("Training Mod-Reinforcement Network, %d epochs, %d records", epochs, output_records.length);
 		
-		void callback( uint currentEpoch, real currentError  )
-		{
-			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
-		}
 		_backprop.setProgressCallback(&callback, 100 );
 		
 		_backprop.epochs = epochs;
@@ -117,10 +117,11 @@ class NNManagerModReinforcement : NNManagerBase
 	}
 	
 	
-	//TODO: something probably.
-	override void configure_backprop()
+	
+	override void adjust_NN_params()
 	{
-		_backprop.learningRate *= 2.0; //TODO: is this called at a reasonable time? //TODO: make this bigger?
+		//_backprop.learningRate *= 2.0; //TODO: is this called at a reasonable time? //TODO: make this bigger?
+		_backprop.errorThreshold = .1;
 	} 
 	
 	

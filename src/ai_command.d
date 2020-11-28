@@ -20,6 +20,13 @@ import factory_unit;
 import and.api;
 import and.platform;
 
+const int NUM_COMMAND_AI_INPUTS = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3   // TODO: starting to smell like a funciton up in here.
+			+ NUM_UNIT_TYPES + NUM_CAPTURE_POINTS + 1     // command_ai specific stuff
+			+ 1 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
+			+ 2 // gen 2.5
+            + NUM_CAPTURE_POINTS // gen 3.5
+			+ NUM_CAPTURE_POINTS; // gen 4
+
 
 class CommandAI : BaseAI
 {
@@ -38,11 +45,7 @@ class CommandAI : BaseAI
 	
 	override void init_nnm()
 	{
-		int num_inputs = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3   // TODO: starting to smell like a funciton up in here.
-			+ NUM_UNIT_TYPES + NUM_CAPTURE_POINTS + 1     // command_ai specific stuff
-			+ 1 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
-			+ 2 // gen 2.5
-            + NUM_CAPTURE_POINTS; // gen 3.5
+		int num_inputs = NUM_COMMAND_AI_INPUTS;
 			
 		int num_outputs = NUM_CAPTURE_POINTS;
 		int num_hidden_neurons = 144; // because I wanted it to be.
@@ -54,35 +57,40 @@ class CommandAI : BaseAI
 	
 	override void configure_backprop()
 	{
-		void callback( uint currentEpoch, real currentError  )
+		// todo: why is this done twice?
+		void callback_fcn( uint currentEpoch, real currentError, real expected, real actual )
 		{
-			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
+			writefln("Epoch: [ %s ] | Error [ % f ] | Expected [ % f ] | Actual [ % f ]",currentEpoch, currentError,expected,actual );
 		}
 		
 		with (_nn_mgr)
 		{
-			_backprop.setProgressCallback(&callback, 100 );
+			_backprop.setProgressCallback(&callback_fcn, 1000 );
 			
 			_backprop.epochs = 0;
-			_backprop.learningRate = 0.005;
+			_backprop.learningRate = 0.05;
 			_backprop.momentum = 0.2;
 			_backprop.errorThreshold = 0.000001;
 			
 		}
-		_record_keeper._time_window = COMMAND_AI_WINDOW; // TODO: where this go?
+		//_record_keeper._time_window = COMMAND_AI_WINDOW; // TODO: where this go?
 	}
 	
-	override void adjust_NN_params(){} //TODO: this function
+	//moved to nnm
+	//override void adjust_NN_params(){} //TODO: this function
 	
 	// return the number of times the record should appear in the training set
 	override int get_num_duplicates(real[] inputs, int output)
 	{
+		return 1;  // this was just too jank, and was messing up the results since I added the closest point in gen 3.5
+		/+
 		UnitType type = get_type_from_inputs(inputs);
 		//writef("unittype:%d ",to!int(type)); // debug
 		
 		// currenlty order frequency is constant, if it becomes scaled based on unit cost, this should take that into account.
 		double unit_cost = get_unit_build_cost(type);
 		return to!int( unit_cost / UNIT_COST_BASE );
+		+/
 	}
 	
 	UnitType get_type_from_inputs(real [] inputs)

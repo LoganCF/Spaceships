@@ -5,19 +5,22 @@ import std.algorithm.comparison;
 import std.file;
 
 import record_keeper;
+import ai_base;
 
 import and.api;
 import and.platform;
 
 
 
-// initialiases, queryies, and trains a Neural Network
+// initializes, queries, and trains a Neural Network
 class NNManagerBase
 {
 	NeuralNetwork _neural_net;
 	IActivationFunction _activation_function;
 	CostFunction _cost;
 	BackPropagation _backprop;
+	
+	BaseAI _ai; // the ai that owns this nnm
 	
 	real[][]  _training_input;
 	
@@ -58,7 +61,7 @@ class NNManagerBase
 	
 	
 	
-	abstract void configure_backprop(); //TODO: is this in the wrong class?
+	abstract void adjust_NN_params(); 
 	
 	
 	void save_net()
@@ -93,7 +96,7 @@ class NNManagerBase
 		}
 	}
 	
-	// subclasses should override this to cleanup thier own training arrays.
+	// subclasses should override this to cleanup their own training arrays.
 	void cleanup()
 	{
 		_training_input .length = 0;
@@ -123,7 +126,13 @@ class NNManagerBase
 	//subclases should override this
 	abstract void train_net();
 	
-	
+	void callback( uint currentEpoch, real currentError, real expected, real nn_result )
+	{
+		if ( expected != 0.0 || nn_result != 0.0)
+			writefln("Epoch: [ %5s ] | Error [ % f ]   | Actual [ % f ] | Predicted [ % f ]",currentEpoch, currentError,expected, nn_result );
+		else
+			writefln("Epoch: [ %5s ] | Error [ % f ]",currentEpoch, currentError);
+	}
 	
 	
 	

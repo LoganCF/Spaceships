@@ -32,7 +32,7 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 
 	void backPropogate(real [] inputs, real expected, int output_neuron_num)
 	{
-		write( output_neuron_num, " ");
+		//write( output_neuron_num, " ");
 		  // calculate the output layer errors first
 		foreach ( int i , /+inout+/ Neuron no; neuralNetwork.output.neurons )
 		{
@@ -40,6 +40,13 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			{
 				//error = derivative of SSE * derivative of output activation function 
 				no.error = ( expected - no.value ) * neuralNetwork.output.activationFunction.fDerivative(no.value );
+				//debug
+				/+
+				if(neuralNetwork.output.activationFunction.fDerivative(no.value ) < 0.01)
+				{
+					writefln("expected is: %f, val is %f, derivative is %f",expected,no.value, neuralNetwork.output.activationFunction.fDerivative(no.value ));
+				}
+				+/
 			} else {
 				no.error = 0;
 			}
@@ -89,15 +96,30 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 	  */
 
 
-	void train (real [] [] inputs , real [] expectedOutputs, int [] output_neuron_numbers  ) {
+	void train (real [] [] inputs , real [] expectedOutputs, int [] output_neuron_numbers, int depth = 0  ) {
 		 
 		assert(inputs.length );
 		assert(expectedOutputs.length );
 		assert(inputs.length == expectedOutputs.length );
 		assert(inputs[0].length == neuralNetwork.input.neurons.length );
+		
+		
+		// holds the records that are beyond the error threshold.
+		real [][] problem_inputs = [];
+		real [] problem_expected = [];
+		int [] problem_neuron_outputs = [];
+		
 
 		int patternCount = 0;
 		real error = 0;
+		real total_abs_error = 0;
+		
+		int last_problem_count = 0;
+		real last_error = 0.0;
+		
+		real expected = 0; //experimental value
+		real actual = 0;  // what we calculated from the NN
+		
 		
 		while ( 1 )
 		{
@@ -105,6 +127,8 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			feedForward(inputs[patternCount] );
 			backPropogate(inputs[patternCount],expectedOutputs[patternCount], output_neuron_numbers[patternCount] );
 
+			const bool train_on_problem_inputs = false;
+			
 			/+real [] actual;
 			foreach ( int nCount, Neuron no;neuralNetwork.output.neurons)
 			{
@@ -115,8 +139,17 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			error = costFunction.f(expectedOutputs[patternCount],actual );
 			/+++/assert(!isNaN(error));
 			+/
-			error = expectedOutputs[patternCount] - neuralNetwork.output.neurons[output_neuron_numbers[patternCount]].value;
+			expected = expectedOutputs[patternCount];
+			actual = neuralNetwork.output.neurons[output_neuron_numbers[patternCount]].value;
+			error =  expected - actual;
+			total_abs_error += abs(error);
 			
+			if(train_on_problem_inputs && abs(error) > errorThreshold)
+			{	
+				problem_inputs ~= inputs[patternCount];
+				problem_expected ~= expectedOutputs[patternCount];
+				problem_neuron_outputs ~= output_neuron_numbers[patternCount];
+			}
 
 			patternCount++;
 			debug 
@@ -129,13 +162,40 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				writefln(" ] Cost [ %f ]",error);
 			}
 				 
-			if ( patternCount >= inputs.length ) patternCount = 0;
+			if ( patternCount >= inputs.length ) 
+			{
+				//for(int i = 0; i < depth; ++i) write(" ");
+				//writef("Learning rate: %f",learningRate);
+				real avg_err = total_abs_error / patternCount;
+				if(last_error == 0.0) last_error = avg_err;
+				writefln("Average Error: % 7f (%+7f)", avg_err, avg_err - last_error);
+				last_error = avg_err;
+				// if average error is small enough, we're done!
+				if(total_abs_error / patternCount <= this.errorThreshold)
+				{
+					break;
+				}
+				
+				//otherwise, start at the beginning.
+				patternCount = 0;
+				total_abs_error = 0;
+				
+				if(train_on_problem_inputs && problem_inputs.length > 500)
+				{	
+					//for(int i = 0; i < depth; ++i) write(" ");
+					if(last_problem_count == 0) last_problem_count = problem_inputs.length;
+					writefln("%d problem records (%+d)", problem_inputs.length, problem_inputs.length - last_problem_count);
+					last_problem_count = problem_inputs.length;
+					train(problem_inputs, problem_expected, problem_neuron_outputs, depth+1);
+				}
+			}
 
 			if ( actualEpochs % callBackEpochs == 0 ) 
 			{
+				//for(int i = 0; i < depth; ++i) write(" ");
 				if ( progressCallback !is null )
 				{
-					progressCallback( actualEpochs, error );
+					progressCallback( actualEpochs, error, expected, actual );
 				}
 			}
 

@@ -36,6 +36,13 @@ class CapturePoint : Drawable
 	double _cap_radius;
 	double _cap_radius_sq;
 	
+	double _threat_radius;
+	double _thread_radius_sq;
+	
+	double _team1_threat = 0.0;
+	double _team2_threat = 0.0;
+	
+	
 	RectangleShape[2] _disp;
 	
 	int _zone_number = -1;
@@ -46,12 +53,19 @@ class CapturePoint : Drawable
 	int _team1_num_units;
 	int _team2_num_units;
 	
-	this(double x, double y, double radius, int in_number)
+	static const double THREAT_RADIUS_UNDEFINED = 0.0;
+	
+	this(double x, double y, double radius, int in_number, double threat_radius = THREAT_RADIUS_UNDEFINED)
 	{
 		_pos = Vector2d(x,y);
 		_cap_radius = radius;
 		_cap_radius_sq = square(radius);
 		_zone_number = in_number;
+		
+		if (threat_radius == THREAT_RADIUS_UNDEFINED)
+			threat_radius = radius * 3.0;
+		_threat_radius = threat_radius;
+		_thread_radius_sq = square(threat_radius);
 	}
 	
 	void update( CollisionGrid grid /+Unit[] units+/, double dt)
@@ -62,11 +76,14 @@ class CapturePoint : Drawable
 		_team1_num_units = 0;
 		_team2_num_units = 0;
 		
+		_team1_threat = 0.0;
+		_team2_threat = 0.0;
+		
 		/+foreach(unit ; units)+/
 		grid.collision_query
 		(
 			_pos, _cap_radius,
-			delegate void( Unit unit)
+			delegate void(Unit unit)
 			{
 				//double dist_sq = get_dist_sq(_pos, unit._pos);
 				//if(dist_sq <= _cap_radius_sq)
@@ -86,6 +103,21 @@ class CapturePoint : Drawable
 					_team2_num_units++;
 				}
 				//}
+			}
+		);
+		
+		
+		grid.collision_query
+		(
+			_pos, _threat_radius,
+			delegate void (Unit unit)
+			{
+				if( unit._team._id == TeamID.One )
+				{
+					_team1_threat += get_unit_build_cost(unit._type);
+				} else {
+					_team2_threat += get_unit_build_cost(unit._type);
+				}
 			}
 		);
 		
@@ -176,6 +208,27 @@ class CapturePoint : Drawable
 		renderTarget.draw(_disp[0], renderStates);
 		renderTarget.draw(_disp[1], renderStates);
 		
+	}
+	
+	double getThreatDiffForTeam(TeamID in_team)
+	{
+		//TODO: what if we pass neutral
+		if (in_team == TeamID.One)
+		{
+			return _team1_threat - _team2_threat;
+		} else {
+			return _team2_threat - _team1_threat;
+		}
+	}
+	
+	double getThreatAmountForTeam(TeamID in_team)
+	{
+		if (in_team == TeamID.One)
+		{
+			return _team1_threat;
+		} else {
+			return _team2_threat;
+		}
 	}
 	
 }

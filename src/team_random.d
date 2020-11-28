@@ -2,6 +2,7 @@ module team_random;
 
 import std.random;
 import std.conv;
+import std.format;
 
 import team;
 import ai_base;
@@ -35,6 +36,11 @@ class RandomTeam : TeamObj
 	
 		record_move_order(unit, decision);
 		return decision;
+	}
+	
+	override string generate_display_str()
+	{
+		return format("Scripted Random AI");
 	}
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )

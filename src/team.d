@@ -12,6 +12,7 @@ import std.random;
 import std.algorithm.mutation;
 import std.conv;
 import std.stdio;
+import std.format;
 
 import spaceships;
 import steering;
@@ -26,9 +27,11 @@ import network_input_display;
 import nn_manager;
 import nn_manager_classifier;
 import matchinfo;
+import gamestateinfo;
 
 import dsfml.graphics;
 import and.api;
+import and.activation.model.iactivation;
 
 
 enum TeamID {One, Two, Neutral}
@@ -51,6 +54,9 @@ class TeamObj : Drawable
 	
 	TeamID _id;
 	char[] _name;
+	
+	Font _font = null; 
+	Text _display_str = null;
 	
 	TeamObj _opponent;
 	
@@ -83,12 +89,15 @@ class TeamObj : Drawable
   
 	bool _train; // whether or not we train the NN at the end of each match.
 	
-	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true ) //TODO: will take AI objects.
+	static const real TIME_SCALING_FACTOR = 30.0;
+	
+	IActivationFunction _build_act_fn;
+	IActivationFunction _command_act_fn;
+	
+	
+	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true, 
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null ) //TODO: will take AI objects.
 	{
-		if (in_name != "")
-		{
-			init_ais(in_name);
-		}
 		_color = in_color;
 		_id = in_id;
 		_name = in_name.dup();
@@ -96,19 +105,38 @@ class TeamObj : Drawable
 		
 		_unit_built_counts.length = NUM_UNIT_TYPES;
 		_unit_lost_counts.length  = NUM_UNIT_TYPES;
+		
+		_build_act_fn = in_build_act_fn;
+		_command_act_fn = in_command_act_fn;
+		if (in_name != "")  //TODO: another neutral case
+		{
+			ensure_act_fns();
+			init_ais(in_name);
+		}
+		//writefln("constructing team %s", in_name); //neutral team is made at compile time
+		
 	}
 	
 	//for constructor
 	void init_ais(inout char[] in_name)
 	{
 		
-		NNManagerBase build_nnm = new NNManagerClassifier(in_name ~ "_build.txt"    ,new SigmoidActivationFunction());
+		NNManagerBase build_nnm = new NNManagerClassifier(in_name ~ "_build.txt"    , _build_act_fn);
 		_build_ai   = new BuildAI( build_nnm ); 
 		
 		
-		NNManagerBase command_nnm = new NNManagerClassifier(in_name ~ "_command.txt",new SigmoidActivationFunction());
+		NNManagerBase command_nnm = new NNManagerClassifier(in_name ~ "_command.txt", _command_act_fn);
 		_command_ai = new CommandAI( command_nnm  );
 		
+	}
+	
+	// we assign default values here, so that not every subclass that wants to accept act_fns has to specify a default value in the ctor
+	void ensure_act_fns()
+	{
+		if (_build_act_fn is null)
+			_build_act_fn = new SigmoidActivationFunction();
+		if (_command_act_fn is null)
+			_command_act_fn = new SigmoidActivationFunction();
 	}
 	
 	~this()
@@ -185,9 +213,52 @@ class TeamObj : Drawable
 		{
 			_input_disp.draw(renderTarget, renderStates);
 		}
+		
+		//TODO: gross, there should be a superclass of this that the neutral team is.
+		if(_id != TeamID.Neutral)
+			ensure_display_str(renderTarget).draw(renderTarget, renderStates);
 			
 			
 		
+	}
+	
+	Text ensure_display_str(RenderTarget renderTarget)
+	{
+		if(_display_str is null)
+		{
+			_display_str = new Text();
+			//writeln(i, _points.length);
+			_display_str.setFont(ensure_font()); 
+			_display_str.setCharacterSize(15);
+			_display_str.setColor(_color);
+			
+			Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(renderTarget.getSize().x/2.0, 0.0);
+			_display_str.position = Vector2!float(10.0, 35.0) + offset; 
+			_display_str.position.x = to!int(_display_str.position.x);
+			_display_str.position.y = to!int(_display_str.position.y);
+		}
+		_display_str.setString(generate_display_str());
+		return _display_str;
+	}
+	
+	Font ensure_font()
+	{
+		_font = new Font();
+		if (!_font.loadFromFile("font/OpenSans-Regular.ttf"))
+		{
+			assert(false, "font didn't load");
+		}
+		return _font;
+	}
+	
+	string generate_display_str()
+	{
+		return format("Classifier AI using %s", get_ai_actfn_name());
+	}
+	
+	string get_ai_actfn_name()
+	{
+		return ActivationIdToStr(_command_ai._nn_mgr._activation_function.id);
 	}
 	
 	// sets metric data for AIs
@@ -243,9 +314,11 @@ class TeamObj : Drawable
 	}
 	
 	
-	//gen2: num built/killed, location boredom, total cost at point
+	//gen 2  : num built/killed, location boredom, total cost at point
 	//gen 2.5: tickets
-	//gen 3: fewer unit types,  point-is-nuetral changed to pointed-not-owned-by-me
+	//gen 3  : fewer unit types,  point-is-neutral changed to pointed-not-owned-by-me
+	//gen 3.5: closest point
+	//gen 4  : Threat value at each point.
 	real[] get_common_ai_inputs(Unit unit)
 	{
 		real[] inputs = [ ];
@@ -311,7 +384,7 @@ class TeamObj : Drawable
 		// following are gen2 params
 		
 		// location boredom
-		inputs ~= always_positive_to_01( sigmoid(unit._location_boredom_timer) );
+		inputs ~= sigmoid(unit._location_boredom_timer  / TIME_SCALING_FACTOR);
 		
 		// num unit lost
 		foreach( UnitType type, lost_count; _unit_lost_counts)
@@ -346,6 +419,12 @@ class TeamObj : Drawable
 			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;
 		}
 		
+		// threat for each point (gen 4)
+		foreach( point ; _points )
+		{
+			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR;
+		}
+		
 		
 		foreach (input; inputs)
 		{
@@ -362,13 +441,16 @@ class TeamObj : Drawable
 	{
 		return get_common_ai_inputs(unit);
 	}
+	
+	StateInfo make_state_info(Unit unit)
+	{
+		return StateInfo(this, unit, _points, _match_info);
+	}
 
-  //TODO: amke this more modular
+	//TODO: make this more modular
 	int assign_command(Unit unit)
 	{
 		_num_orders_given++;
-		// TODO: use unit._type
-		// TODO: compute distance to each point.
 		
 		assert(_opponent !is null);
 		
@@ -380,7 +462,14 @@ class TeamObj : Drawable
 		}
 		
 		int old_dest = unit._destination_id;
-		int new_dest = _command_ai.get_decision(inputs);//to!int(floor(uniform01!(float)() * NUM_CAPTURE_POINTS)); //TEMPTEMPTEMP
+		DecisionResult result = _command_ai.get_decision(inputs, make_state_info(unit));
+		int new_dest = result.decision;//to!int(floor(uniform01!(float)() * NUM_CAPTURE_POINTS)); //TEMPTEMPTEMP
+		unit._last_strat = result.strategy;
+		
+		if (new_dest == -1)  //TODO: we could handle this case differently.
+			new_dest = old_dest;
+		if (new_dest == -1)
+			new_dest = 0;
 		
 		if(old_dest != -1)
 		{
@@ -409,7 +498,7 @@ class TeamObj : Drawable
 		real[] inputs = get_build_inputs(building_unit);
 		
 		
-		return cast(UnitType)_build_ai.get_decision(inputs); //cast(UnitType)dice(18,18,18,3,3,3,1,1,1);
+		return cast(UnitType)_build_ai.get_decision(inputs, make_state_info(building_unit)).decision; //cast(UnitType)dice(18,18,18,3,3,3,1,1,1);
 	}
 	
 	
@@ -417,79 +506,11 @@ class TeamObj : Drawable
 	{
 		assert(_opponent !is null);
 		
-		/*real[] inputs = [ ];
-		
-		add_sigmoid_of_counts_to_array( 				_unit_counts				, &inputs );
-		add_sigmoid_of_counts_to_array( 				_unit_destination_counts, &inputs );
-		add_sigmoid_of_counts_to_array( _opponent._unit_counts  				, &inputs );
-		add_sigmoid_of_counts_to_array( _opponent._unit_destination_counts, &inputs );
-		foreach( point ; _points)
-		{
-			inputs ~= (point._team_id == _opponent._id ) ? 1.0 : 0.0;
-			inputs ~= (point._team_id == TeamID.Neutral) ? 1.0 : 0.0;
-		}
-		inputs ~= _income           / _match_info._total_income_from_points;
-		inputs ~= _opponent._income / _match_info._total_income_from_points;
-		inputs ~= _game_timer / _match_info._timer_max;
-		
-		inputs ~= _tickets           / _match_info._tickets_max;  // g2.5
-		inputs ~= _opponent._tickets / _match_info._tickets_max;  // g2.5
-		
-		
-		//following are gen2 params
-		
-		foreach( point ; _points )
-		{
-			double dist = sqrt( square(building_unit._pos.x - point._pos.x) + square(building_unit._pos.y - point._pos.y) );
-			inputs ~= dist / _match_info.battlefield_diagonal;
-		}
-			
-		inputs ~= building_unit._health_current / building_unit._health_max;
-		
-		// following are gen2 params
-		
-		// location boredom
-		inputs ~= always_positive_to_01( sigmoid(building_unit._location_boredom_timer) );
-		
-		// build boredom counter
-		inputs ~= always_positive_to_01( sigmoid(building_unit._build_boredom_timer) );
-		
-		// num unit lost
-		foreach(lost_count; _unit_lost_counts)
-		{
-			inputs ~= always_positive_to_01( sigmoid(lost_count) );
-		}
-		// num unit killed
-		foreach(lost_count; _opponent._unit_lost_counts)
-		{
-			inputs ~= always_positive_to_01( sigmoid(lost_count) );
-		}
-		// num unit built
-		foreach(built_count; _unit_built_counts)
-		{
-			inputs ~= always_positive_to_01( sigmoid(built_count) );
-		}
-		// num enemy unit built
-		foreach(built_count; _opponent._unit_built_counts)
-		{
-			inputs ~= always_positive_to_01( sigmoid(built_count) );
-		}
-		// total unit cost at point
-		foreach(total_cost; _unit_total_cost_at_points)
-		{
-			inputs ~= always_positive_to_01( sigmoid(total_cost) );
-		}
-		// enemy total cost at point
-		foreach(total_cost; _opponent._unit_total_cost_at_points)
-		{
-			inputs ~= always_positive_to_01( sigmoid(total_cost) );
-		}
-		*/
 		
 		real[] inputs = get_common_ai_inputs(building_unit);
 		
 		// build boredom counter
-		inputs ~= always_positive_to_01( sigmoid(building_unit._build_boredom_timer) );
+		inputs ~= sigmoid(building_unit._build_boredom_timer / TIME_SCALING_FACTOR);
 		
 		
 		foreach (input; inputs)
@@ -514,12 +535,12 @@ class TeamObj : Drawable
 	{
 		_game_over = true;
 		
-		//update records for all AIs, doing it twice won't cause any problems
+		//update records for all AIs, doing it twice won't cause any problems (because it uses queues for pending records)
 		_build_ai  .update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
 		_command_ai.update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
 		
-		_opponent._build_ai  .update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
-		_opponent._command_ai.update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
+		_opponent._build_ai  .update_records_endgame(!won_game, -get_territory_diff(), -get_score_diff() );
+		_opponent._command_ai.update_records_endgame(!won_game, -get_territory_diff(), -get_score_diff() );
 		
 		if(!_train)
 		{
@@ -572,7 +593,7 @@ class TeamObj : Drawable
 		_num_factories--;
 		if( _num_factories == 0 ) 
 		{
-			/+
+			/+  removed this as a victory condition
 			handle_endgame(false); //you lose!
 			_opponent.handle_endgame(true); // opponent wins!
 			+/
@@ -596,6 +617,8 @@ class TeamObj : Drawable
 	{
 		real score = get_partial_score(this) - get_partial_score(_opponent);
 		assert (!isNaN(score));
+		if(score >  1.0){ score =  1.0; }
+		if(score < -1.0){ score = -1.0; }
 		return score;
 	}
 	
@@ -627,8 +650,7 @@ real num_units_scaled_by_cost(int unit_count, UnitType unit_type)
 }
 
 
-
-void add_sigmoid_of_counts_to_array( int[][] count_array , real[]* neuron_input_array ) 
+deprecated void add_sigmoid_of_counts_to_array( int[][] count_array , real[]* neuron_input_array ) 
 {
 	foreach(location; count_array )
 		{
@@ -647,7 +669,7 @@ real always_positive_to_01(real input)
 
 
 
-// computes a score in the approximate range [-1.0, 1.0] It can go a bit over or under becasue we use ReLUs in the AI (which are not bound to that range)
+// computes a score in the approximate range [-1.0, 1.0] It can go a bit over or under because we use ReLUs in the AI (which are not bound to that range)
 // the opponent's score should be subtracted from this TODO: rename this function
 real get_partial_score(TeamObj t)
 {
@@ -663,8 +685,6 @@ real get_partial_score(TeamObj t)
 				+ 1.0/3.0 * t._income_per_factory * t._num_factories / (INCOME_BASE + INCOME_PER_POINT * NUM_CAPTURE_POINTS + INCOME_PER_POINT * TeamObj.MINER_INCOME_FRACTION * NUM_CAPTURE_POINTS )
 				+ 1.0/3.0 * t._total_army_value / (get_unit_build_cost(UnitType.Battleship) * 20) ;
 				
-	if(retval >  1.0){ retval =  1.0; }
-	//if(retval < -1.0){ retval = -1.0; }
 	return retval;
 }
 

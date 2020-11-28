@@ -31,7 +31,7 @@ class TanhActivationFunction : IActivationFunction
   /** 1 - x^2 */
   real fDerivative( real val )
   {
-    return ( 1.0 - (val * val) );
+    return ( 1.0 - (tanh(val) * tanh(val)) );
   }
 
 }

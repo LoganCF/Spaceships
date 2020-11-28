@@ -14,7 +14,7 @@ import unit;
 import spaceships;
 
 import std.conv;
-
+import std.stdio; // debug prints
 
 class CollisionGrid
 {
@@ -75,6 +75,7 @@ class CollisionGrid
 	void collision_query_grid_only( Vector2d position, double radius, scope void delegate(Unit) process )
 	{
 	
+		//writefln("postition x is %f, radius is %f", position.x,radius);
 		int min_grid_x = to_grid_x(position.x - radius);
 		int max_grid_x = to_grid_x(position.x + radius);
 		

@@ -69,7 +69,8 @@ class BuildAI : BaseAI
 							 + NUM_UNIT_TYPES 
 							 + NUM_CAPTURE_POINTS + 3 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
 							 + 2 // gen 2.5
-                             + NUM_CAPTURE_POINTS; // gen 3.5
+                             + NUM_CAPTURE_POINTS  // gen 3.5
+							 + NUM_CAPTURE_POINTS; // gen 4
 				
 			int num_outputs = NUM_UNIT_TYPES;
 			int num_hidden_neurons = 144; // because I wanted it to be.
@@ -83,20 +84,21 @@ class BuildAI : BaseAI
 	override void configure_backprop()
 	{
 		with(_nn_mgr){ //TODO: this should be defined by the NN_mgr, the AI object should call adjust_NN_parameters
-			void callback( uint currentEpoch, real currentError  )
-			{
-				writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
-			}
-			_backprop.setProgressCallback(&callback, 100 );
+			void callback_fcn( uint currentEpoch, real currentError, real expected, real actual )
+		{
+			writefln("Epoch: [ %s ] | Error [ % f ] | Expected [ % f ] | Actual [ % f ]",currentEpoch, currentError,expected,actual );
+		}
+			_backprop.setProgressCallback(&callback_fcn, 1000 );
 		
 			_backprop.epochs = 0;
-			_backprop.learningRate = 0.02;
+			_backprop.learningRate = 0.05;
 			_backprop.momentum = 0.2;
 			_backprop.errorThreshold = 0.000001;
 		}
 	}
 	
-	override void adjust_NN_params(){} //TODO: ?
+	//moved to nnm
+	//override void adjust_NN_params(){} //TODO: ?
 	
 	/+override int get_decision(real [] inputs)
 	{
@@ -112,9 +114,13 @@ class BuildAI : BaseAI
 	// return the number of times the record should appear in the training set
 	override int get_num_duplicates(real[] inputs, int output)
 	{
+		return 1;
+		/*
 		double unit_cost = get_unit_build_cost(to!UnitType(output));
 		return to!int( unit_cost / UNIT_COST_BASE );
+		*/
 	}
+	
 	
 
 }

@@ -3,6 +3,7 @@ module team_scripted_defender;
 
 import std.random;
 import std.conv;
+import std.format;
 
 import team;
 import ai_base;
@@ -20,6 +21,11 @@ class DefenderTeam : TeamObj
   {
     super( in_id, in_color, in_name );
   }
+  
+  override string generate_display_str()
+	{
+		return format("Scripted Defender AI");
+	}
 
   override int assign_command(Unit unit)
 	{ 

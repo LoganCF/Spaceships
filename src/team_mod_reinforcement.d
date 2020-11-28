@@ -39,43 +39,44 @@ import and.api;
 
 class ReinforcementLearningTeam : TeamObj
 {
-	Font _font; // TODO: should really go somewhere else, like a display class
 	Text[] _labels;
 	Text   _score_disp;
 	real[] _last_output; // last NN output for drawing labels
 	bool _labels_inited = false;
 	
-	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true ) // will take AI objects.
+	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true,
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null) // will take AI objects.
 	{
-		super( in_id, in_color, in_name );
-		_font = new Font();
-		if (!_font.loadFromFile("font/OpenSans-Regular.ttf"))
-		{
-			assert(false, "font didn't load");
-		}
+		super( in_id, in_color, in_name, in_train, in_build_act_fn, in_command_act_fn );
 		_labels.length = NUM_CAPTURE_POINTS;
 		
+	}
+	
+	override string generate_display_str()
+	{
+		return format("Mod-R AI using %s", get_ai_actfn_name());
 	}
 
 	override void init_ais(inout char[] in_name)
 	{
-		NNManagerBase build_nnm = new NNManagerModReinforcement(in_name ~ "_build.txt"    ,new SigmoidActivationFunction());
+		NNManagerBase build_nnm = new NNManagerModReinforcement(in_name ~ "_build.txt", 
+			_build_act_fn);
+			//new SigmoidActivationFunction());
 		_build_ai   = new BuildAI( build_nnm ); 
 		
-		NNManagerBase command_nnm = new NNManagerModReinforcement(in_name ~ "_command.txt",new SigmoidActivationFunction());
+		NNManagerBase command_nnm = new NNManagerModReinforcement(in_name ~ "_command.txt",
+			_command_act_fn);
+			//new SigmoidActivationFunction());
 		_command_ai = new CommandAI( command_nnm  );
 	}
 	
-	/+
-	override void update_ai_records(double now)
+	override void ensure_act_fns()
 	{
-		//writeln(compute_score(this), compute_score(_opponent));
-		real score = get_score_diff(); 
-		int terr_diff = get_territory_diff();
-		assert(!isNaN(score));
-		_build_ai  .update_records(now, score);
-		_command_ai.update_records(now, score);
-	}+/
+		if (_build_act_fn is null)
+			_build_act_fn = new TanhActivationFunction();
+		if (_command_act_fn is null)
+			_command_act_fn = new TanhActivationFunction();
+	}
 	
 	override int assign_command(Unit unit)
 	{
@@ -92,38 +93,61 @@ class ReinforcementLearningTeam : TeamObj
 	}
 	
 	
+	
+	void init_labels()
+	{
+		foreach( i, ref label; _labels)
+		{
+			_labels[i] = new Text();
+			//writeln(i, _points.length);
+			label.setFont(ensure_font()); 
+			label.setCharacterSize(10);
+			label.setColor(_color);
+
+		}
+		position_labels();
+		
+		_score_disp = new Text();
+		Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(50.0, 0.0);
+		_score_disp.position = Vector2!float(25, 60) + offset; 
+		_score_disp.setFont(ensure_font()); 
+		_score_disp.setCharacterSize(14);
+		_score_disp.setColor(_color);
+		
+		_labels_inited = true;
+	}
+	
+	void position_labels()
+	{
+		foreach( i, ref label; _labels)
+		{
+			Vector2!float offset = _id == TeamID.One ? Vector2!float(10.0, -20.0) : Vector2!float(10.0, 25.0);
+			label.position = to!(Vector2!float)(_points[i]._pos) + offset; 
+			label.position.x = to!int(label.position.x);
+			label.position.y = to!int(label.position.y);
+		}
+	}
+	
+	void set_label_text()
+	{
+		foreach(int i, ref label; _labels)
+		{
+			label.setString(format("%+#.3f",_last_output[i] /+ - _command_ai._last_score+/) );
+		}
+	}
+	
 	override void draw(RenderTarget renderTarget, RenderStates renderStates)
 	{
 		if(!_labels_inited)
 		{
-			foreach( i, ref label; _labels)
-			{
-				_labels[i] = new Text();
-				//writeln(i, _points.length);
-				Vector2!float offset = _id == TeamID.One ? Vector2!float(10.0, -20.0) : Vector2!float(10.0, 25.0);
-				label.position = to!(Vector2!float)(_points[i]._pos) + offset; 
-				label.position.x = to!int(label.position.x);
-				label.position.y = to!int(label.position.y);
-				label.setFont(_font); 
-				label.setCharacterSize(10);
-				label.setColor(_color);
-
-			}
-			_score_disp = new Text();
-			Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(50.0, 0.0);
-			_score_disp.position = Vector2!float(25, 60) + offset; 
-			_score_disp.setFont(_font); 
-			_score_disp.setCharacterSize(14);
-			_score_disp.setColor(_color);
-			
-			_labels_inited = true;
+			init_labels();
 		}
 		
 		if(_last_output.length > 0)
 		{
+			set_label_text();
 			foreach(int i, ref label; _labels)
 			{
-				label.setString(format("%+#.3f",_last_output[i] /+ - _command_ai._last_score+/) );
 				renderTarget.draw(label);
 			}
 		}

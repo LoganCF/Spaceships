@@ -302,7 +302,7 @@ void feedForward ( real [] inputs) {
 			{
 				if ( progressCallback !is null )
 				{
-					progressCallback( actualEpochs, error );
+					progressCallback( actualEpochs, error, 0, 0 );
 				}
 			}
 

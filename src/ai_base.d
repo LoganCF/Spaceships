@@ -22,25 +22,28 @@ import and.platform;
 import nn_manager;
 import record_keeper;
 import unit;
+import gamestateinfo;
 
 
 //TODO: move these constants to ai subclasses?
-const double BUILD_AI_WINDOW   = 90.0;
-const double COMMAND_AI_WINDOW = 15.0;
+const double BUILD_AI_WINDOW   = 60.0;
+const double COMMAND_AI_WINDOW = 20.0;
 
-
-
+struct DecisionResult
+{
+	int decision;
+	int strategy;
+}
 
 
 class BaseAI
 {
-	
 	//bool _emulatable = true; 
 	
 	NNManagerBase _nn_mgr;
 	RecordKeeper _record_keeper;
 	
-	double CHANCE_OF_RANDOM_ACTION = 0.005;
+	double CHANCE_OF_RANDOM_ACTION = 0.01;
 	
 
 	this( NNManagerBase in_nnm) 
@@ -55,6 +58,7 @@ class BaseAI
 		
 		configure_backprop();
 		setup_ai(in_nnm);
+		in_nnm._ai = this;
 		
 	}
 	
@@ -81,12 +85,13 @@ class BaseAI
 		{
 			init_nnm();
 		}*/
-		adjust_NN_params();
+		_nn_mgr.adjust_NN_params();
 	}
 	
 	abstract void init_nnm();
 	
-	abstract void adjust_NN_params();
+	//moved to nnm
+	//abstract void adjust_NN_params();
 	
 	abstract void configure_backprop();
 	
@@ -99,10 +104,8 @@ class BaseAI
 		gets a decision from the NN and records the input paramters & decision for training.
 		asserts that the NN has the same number of input neurons as the "input" parameter
 	*/
-	//TODO: move some of the logic to NNM.
-	//TODO: interact correctly with Strategy.
-	//TODO: how do I get unittype here? (get from a function decided by move/build ai?) (get from inputs/output, get_num_duplicates is implemented by command/move AI)
-	int get_decision(real[] inputs)
+	//TODO: cleanup: merge the logic, use a #def for no strategy
+	DecisionResult get_decision(real[] inputs, StateInfo gamestate)
 	{	
 		/+load_or_initialize_net();+/
 		
@@ -110,19 +113,22 @@ class BaseAI
 		{
 			int random_result = to!int(uniform(0,_nn_mgr._neural_net.output.neurons.length));
 			_record_keeper.record_decision(inputs, get_num_duplicates(inputs, random_result), random_result, -1); //TODO: strategy here
-			return random_result;
+			return DecisionResult(random_result, -1);
 		}
 		
-		int retval = _nn_mgr.query_net(inputs);
+		int decision = _nn_mgr.query_net(inputs);
 		
 		//add to records
-		_record_keeper.record_decision(inputs, get_num_duplicates(inputs, retval), retval, -1);// subclasses may specify a strategy here, but we just send -1 for "no strategy"
+		_record_keeper.record_decision(inputs, get_num_duplicates(inputs, decision), decision, -1);// subclasses may specify a strategy here, but we just send -1 for "no strategy"
 		
-		return retval;
+		return DecisionResult (decision, -1);
 	}
 	
-	
-	
+	// exists to be overridden. some subclasses use Strategies instead of the decision.
+	int getResultFromRecord(ref CompletedRecord record)
+	{
+		return record.decision;
+	}
 	
 
 	
@@ -153,7 +159,7 @@ class BaseAI
 	
 	
 	
-	//close all records whose windows have elasped
+	//close all records whose windows have elapsed
 	void update_records(double now, int territory_diff, real score )
 	{
 		_record_keeper.update_records(now, territory_diff, score);
@@ -163,6 +169,7 @@ class BaseAI
 	// last score reported in update_records is used as current score.
 	void update_records_endgame(bool victory, int territory_diff, real score)
 	{
+		writefln("%s, updating records for endgame, score = %f", victory?"won":"lost", score);
 		_record_keeper.update_records_endgame(victory, territory_diff, score);
 	}
 	

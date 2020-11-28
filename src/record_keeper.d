@@ -1,5 +1,6 @@
 module record_keeper;
 
+import record_history;
 
 import std.random;
 import std.math;
@@ -46,7 +47,7 @@ struct PendingRecord
 
 
 //-----------------------------------------------------------------------------
-struct CompletedRecord
+class CompletedRecord
 {
 	int delta_territory_diff; // change in difference between opponent's and my territory.
 	real score;
@@ -83,7 +84,86 @@ struct CompletedRecord
 	}
 	
 	
+	void write_to_binary(File f)
+	{
+		int[]  ints_to_write  = [delta_territory_diff, decision, strategy, num_duplicates];
+		real[] reals_to_write = [score];
+		bool[] bools_to_write = [endgame];
+		
+		f.rawWrite (ints_to_write);
+		f.rawWrite (reals_to_write);
+		f.rawWrite (bools_to_write);
+		f.rawWrite (inputs);
+		
+	}
+	
+	static CompletedRecord read_from_binary(File f, int num_inputs)
+	{
+		int [4] ints_to_read;
+		real[1] reals_to_read;
+		bool[1] bools_to_read;
+		real[] inputs_to_read;
+		inputs_to_read.length = num_inputs;
+		
+		f.rawRead(ints_to_read);
+		f.rawRead(reals_to_read);
+		f.rawRead(bools_to_read);
+		f.rawRead(inputs_to_read);
+		
+		return new CompletedRecord(
+								ints_to_read[0],  //delta_territory_diff
+								reals_to_read[0], //score
+								inputs_to_read,   //inputs
+								ints_to_read[3],  //num_duplicates
+								ints_to_read[1],  //decision
+								ints_to_read[2],  //strategy
+								bools_to_read[0]  //endgame
+								);
+	}
+	
+	//bool opEquals( ref const CompletedRecord r) const
+	override bool opEquals( Object o)
+	{
+		CompletedRecord r = to!CompletedRecord(o);
+		
+		if (delta_territory_diff != r.delta_territory_diff ||
+			score != r.score ||
+			inputs.length != r.inputs.length ||
+			decision != r.decision ||
+			strategy != r.strategy ||
+			endgame != r.endgame ||
+			num_duplicates != r.num_duplicates) 
+		{
+			return false;
+		}
+		
+		foreach( int i, real input ; inputs)
+		{
+			if(input != r.inputs[i])
+				return false;
+		}
+		
+		return true;
+	}
+	
+	void print()
+	{
+		writefln("d_terr_diff: %d",delta_territory_diff);
+		writefln("score: %f",score);
+		writefln("input count: %d",inputs.length);
+		writefln("decision: %d",decision);
+		writefln("strategy: %d",strategy);
+		writefln("endgame: %s", endgame? "true":"false");
+		foreach( int i, real input ; inputs)
+		{
+			writef("%d: %f, ",i,input);
+		}
+		
+		writefln("");
+	}
 }
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -91,8 +171,8 @@ struct CompletedRecord
 // sublasses of this determine the neural net archetecture and how it is trained.
 class RecordKeeper
 {
-	double _last_timestamp;
-	double _time_window; // time between making a decision and recording success or failure based on delta(points controlled - enemy points controlled)
+	double _last_timestamp = 0.0;
+	double _time_window = 1.0; // time between making a decision and recording success or failure based on delta(points controlled - enemy points controlled)
 	real _last_score = 0.0;
 	int _last_territory_diff = 0;
 	DList!PendingRecord _pending_record_queue;	
@@ -129,8 +209,7 @@ class RecordKeeper
 	}
 	
 	
-	// game is over, so update all pending records based on change in score
-	// last score reported in update_records is used as current score.
+	// game is over, so update all pending records 
 	void update_records_endgame(bool victory, int territory_diff, real score )
 	{
 		_last_score = score;
@@ -145,14 +224,42 @@ class RecordKeeper
 	
 	void close_record(PendingRecord pending_record, bool endgame)
 	{
-		_completed_records ~= CompletedRecord(pending_record, _last_territory_diff, _last_score, endgame);
+		_completed_records ~= new CompletedRecord(pending_record, _last_territory_diff, _last_score, endgame);
 	}
 	
 	void set_time_window(double in_window){
 		_time_window = in_window;
 	}
 	
+	
+	void write_records_to_history( RecordHistory hist )
+	{
+		if( hist is null)
+		{
+			writeln("hist is null");
+		}
+		foreach(record ; _completed_records)
+		{
+			/+write("record is: ");
+			if( record !is null)
+			{
+				record.print();
+			} else {
+				writeln(" null");
+			}+/
+			hist.add_record_to_file(record);
+		}
+	}
+	
+	
+	void fill_to_n_records_from_history(RecordHistory hist, uint n)
+	{
+		hist.fill_array_to_n_records(_completed_records, n);
+	}
+	
 }
+
+
 
 
 

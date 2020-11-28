@@ -11,6 +11,7 @@ See "License.txt"
 
 
 import std.stdio;
+import std.format;
 
 import team;
 import steering;
@@ -48,9 +49,10 @@ class PlayerTeam : TeamObj
 	
 	string _player_name;
 	
-	this(TeamID in_id, inout Color in_color, inout char[] in_name, inout char[] in_player_name = cast(inout char[])"Player" ) 
+	this(TeamID in_id, inout Color in_color, inout char[] in_name, inout char[] in_player_name = cast(inout char[])"Player",
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null) 
 	{
-		super( in_id, in_color, in_name );
+		super( in_id, in_color, in_name, true, in_build_act_fn, in_command_act_fn);
 		
 		_is_player_controlled = true;
 	
@@ -60,6 +62,10 @@ class PlayerTeam : TeamObj
 		_selection_circle.fillColor		   = Color.Transparent;
 	}
 	
+	override string generate_display_str()
+	{
+		return format("Player Controlled Team");
+	}
 	
 	
 	
@@ -83,11 +89,11 @@ class PlayerTeam : TeamObj
 	override void init_ais(inout char[] in_name)
 	{
 		
-		NNManagerBase build_nnm = new NNManagerCopycat(in_name ~ "_build.txt"    ,new SigmoidActivationFunction());
+		NNManagerBase build_nnm = new NNManagerCopycat(in_name ~ "_build.txt"    , _build_act_fn);
 		_build_ai   = new BuildAI( build_nnm ); 
 		
 		
-		NNManagerBase command_nnm = new NNManagerCopycat(in_name ~ "_command.txt",new SigmoidActivationFunction());
+		NNManagerBase command_nnm = new NNManagerCopycat(in_name ~ "_command.txt", _command_act_fn);
 		_command_ai = new CommandAI( command_nnm  );
 		
 	}

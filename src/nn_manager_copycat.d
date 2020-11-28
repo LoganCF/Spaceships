@@ -24,9 +24,11 @@ class NNManagerCopycat : NNManagerClassifier
 	
 	override void make_training_data_from_own_record( ref CompletedRecord record)
 	{
+		if (_ai.getResultFromRecord(record) == -1)
+			return;
 		//make "correct" record
 		_good_decisions ++;
-		real[] output = make_training_array( record.decision, true, _neural_net.output.neurons.length );
+		real[] output = make_training_array( _ai.getResultFromRecord(record), true, _neural_net.output.neurons.length );
 		//replication, TODO: maybe this should be done elsewhere
 		for(int i = 0; i < record.num_duplicates; ++i)
 		{

@@ -15,7 +15,8 @@ import steering;
 import collision;
 import factory_unit;
 import team;
-
+import strategy;
+import strategies;
 
 import dsfml.graphics;
 import dsfml.system;
@@ -26,7 +27,7 @@ int g_unit_count = 0;
 enum ArmorType  {Light=0, Medium=1, Heavy=2, Any=3}
 enum DamageType {Frag=0, Explosive=1, AP=2, Universal=3}
 
-const double ORDER_DURATION = 15.0;
+const double ORDER_DURATION = 10.0;
 
 const double[][] damage_type_matrix = [ [1.50, 0.75, 0.75],
 										[0.75, 1.50, 0.75],
@@ -61,6 +62,8 @@ class Unit  : Dot
 	DamageType _damage_type;
 	ArmorType _preferred_target_type;
 	
+	static Font _font = null;
+	Text _label;
 	Vertex[2] _laser;
 	double _laser_draw_time = 0.1;
 	double _remaining_laser_draw_time;
@@ -75,6 +78,7 @@ class Unit  : Dot
 	double _location_boredom_timer = 0.0;
 	
 	int _produced_order;
+	int _last_strat = -1;
 	
 	//Vector2f draw_offset;
 	
@@ -111,6 +115,8 @@ class Unit  : Dot
 		
 		//temp?
 		_order_duration = ORDER_DURATION;//60.0 * UNIT_COST_BASE / get_unit_build_cost(_type);
+		
+		
 		
 	}
 	
@@ -259,12 +265,13 @@ class Unit  : Dot
 		
 	}
 	
+	// Dot (steering object) draws the shape.
 	override void draw(RenderTarget renderTarget, RenderStates renderStates) 
 	{
 		if(!_is_dead)
 		{
 			super.draw(renderTarget, renderStates);
-		} else {
+		} else { // TODO: explosion objects should be a thing, make one based on draw size (or do that before cleaning up)
 			//draw explosion!
 			_disp.position = Vector2f( _pos.x, _pos.y );
 			//_disp._draw_size = _draw_size * 2.0f;
@@ -279,6 +286,41 @@ class Unit  : Dot
 			renderTarget.draw( _laser, PrimitiveType.Lines, renderStates);
 		}
 		_draw_laser = ( _remaining_laser_draw_time > 0.0 );
+		
+		if(_last_strat != -1)
+		{
+			ensure_label();
+			Vector2!float offset = Vector2!float(-12.0 - _draw_size, -12.0 - _draw_size);
+			_label.position = to!(Vector2!float)(_pos) + offset; 
+			_label.position.x = to!int(_label.position.x);
+			_label.position.y = to!int(_label.position.y);
+			_label.setString(g_strategies[_last_strat]._name);
+			renderTarget.draw(_label);
+		}
+	}
+	
+	static Font ensure_font()
+	{
+		if(_font is null)
+		{
+			_font = new Font();
+			if (!_font.loadFromFile("font/OpenSans-Regular.ttf"))
+			{
+				assert(false, "font didn't load");
+			}
+		}
+		return _font;
+	}
+	
+	void ensure_label()
+	{
+		if(_label is null)
+		{
+				_label = new Text();
+				_label.setFont(ensure_font()); 
+				_label.setCharacterSize(12);
+				_label.setColor(_color);
+		}
 	}
 	
 }

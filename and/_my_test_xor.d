@@ -44,7 +44,7 @@ void main ()
 		bp.momentum = 0.5;
 		bp.errorThreshold = 0.000001;
 
-		void callback( uint currentEpoch, real currentError  )
+		void callback( uint currentEpoch, real currentError, real dummy, real dummy2  )
 		{
 			writefln("Epoch: [ %s ] | Error [ %f ] ",currentEpoch, currentError );
 		}

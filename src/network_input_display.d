@@ -65,15 +65,16 @@ class NetworkInputDisplay : Drawable
 		//health and location boredom timer
 		//unit lost and built counts
 		//total costs at point	
+		//threat at point
 		
 		/////////////////////
 		// Init row lengths
 		/////////////////////
-		int[] num_rows_in_categories = [ 0, 4*NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2 ];
-		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, 5, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 2, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS];
+		int[] num_rows_in_categories = [ 4*NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2, 1 ];
+		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, 5, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 2, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS];
 		
 		int sum = 0;
-		foreach( num_rows; num_elements_for_rows_in_category)
+		foreach( num_rows; num_rows_in_categories)
 		{
 			sum += num_rows;
 		}
@@ -83,13 +84,13 @@ class NetworkInputDisplay : Drawable
 		int end   = 0;
 		for( int category_iter = 0 ; category_iter < num_elements_for_rows_in_category.length ; ++category_iter )
 		{
-			start += num_rows_in_categories[ category_iter ];
-			end    = start + num_rows_in_categories[category_iter + 1];
+			end    = start + num_rows_in_categories[category_iter];
 			foreach ( row; start..end )
 			{
 				int num_elements   = num_elements_for_rows_in_category[category_iter];
 				_cells[row].length = num_elements;
 			}
+			start += num_rows_in_categories[ category_iter ];
 		}
 		
 		///////////////////////////
@@ -118,13 +119,15 @@ class NetworkInputDisplay : Drawable
 		// 12 rows: enemy unit count at point
 		// 12 rows: enemy unit destination_counts
 		//  2 rows: who controls which points
+		//  2 rows: distance to point, closest point
 		//  1 row : incomes, game timer, ticket, enemy tickets
 		//  2 rows: distance to each point, closest point
 		//  1 row : unit type
         //  1 row : current health and "boredom timer"
 		//  4 rows: unit lost counts, enemy unit lost counts, unit built counts, enemy unit built counts
 		//  2 rows: total unit cost at point and enemy total unit cost at point
-		int[] num_rows_between_lines = [NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2 ];
+		//  1 row : threat at point
+		int[] num_rows_between_lines = [0, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2, 1 ];
 		int row_counter = 0;
 		
 		float line_width = (MAX_WIDTH - 1) * SPACING + MAX_WIDTH * DISPLAY_SIZE;
@@ -187,6 +190,15 @@ class NetworkInputDisplay : Drawable
 		{
 			renderTarget.draw( line, PrimitiveType.Lines, renderStates);
 		}
+	}
+	
+	Vector2f size()
+	{
+		float size_of_x_cells_with_spacing(inout int x)
+		{
+			return x * DISPLAY_SIZE + (x - 1) * SPACING;
+		}
+		return Vector2f(size_of_x_cells_with_spacing(to!(const int)(MAX_WIDTH)), size_of_x_cells_with_spacing(_cells.length));
 	}
 
 
