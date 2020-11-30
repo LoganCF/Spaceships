@@ -12,6 +12,7 @@ See "License.txt"
 import steering;
 import unit;
 import spaceships;
+import mathutil;
 
 import std.conv;
 import std.stdio; // debug prints

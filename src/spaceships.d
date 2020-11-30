@@ -21,6 +21,7 @@ import std.array;
 
 import core.memory;
 
+import mathutil;
 import steering;
 import collision;
 import unit;
@@ -164,6 +165,7 @@ PlayerIdentity[]  ai_identities = [
 						  ,PlayerIdentity( "Chartreuse_MRLH", Color(0x7F, 0xFF, 0x00), AiType.NeuralNetModRWithHistory, ActFnType.ReLU)
 						  ,PlayerIdentity( "DarkOliveGreen",Color(0x55,0x6B,0x2F), AiType.NeuralNetModReinforcement, ActFnType.ReLU)
 						  ,PlayerIdentity( "DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
+						  ,PlayerIdentity( "DarkTurquiose__", Color(0x00, 0xCE, 0xFF), AiType.Strategy4)
 						  /+
 						  ,PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.Strategy1)
 						  ,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.Strategy2)
@@ -730,19 +732,27 @@ void run_match(string [] args, RenderWindow window)
 				window.draw(explosion);
 			}
 			
+			foreach(team; g_teams)
+			{
+				window.draw(team);
+			}
+			
+			foreach(dot; dots)
+			{
+				dot.draw_lasers(window);
+			}
+			
 			foreach(dot; dots)
 			{
 				window.draw(dot);
 			}
+			
 			foreach(point; capture_points)
 			{
 				window.draw(point); 
 			}
 			
-			foreach(team; g_teams)
-			{
-				window.draw(team);
-			}
+			
 			draw_ticket_bars(window);
 			draw_timer_bar  (window, game_time_limit, game_timer);
 			

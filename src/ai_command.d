@@ -20,12 +20,7 @@ import factory_unit;
 import and.api;
 import and.platform;
 
-const int NUM_COMMAND_AI_INPUTS = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3   // TODO: starting to smell like a funciton up in here.
-			+ NUM_UNIT_TYPES + NUM_CAPTURE_POINTS + 1     // command_ai specific stuff
-			+ 1 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
-			+ 2 // gen 2.5
-            + NUM_CAPTURE_POINTS // gen 3.5
-			+ NUM_CAPTURE_POINTS; // gen 4
+const int NUM_COMMAND_AI_INPUTS = NUM_BASE_AI_INPUTS;
 
 
 class CommandAI : BaseAI
@@ -57,20 +52,13 @@ class CommandAI : BaseAI
 	
 	override void configure_backprop()
 	{
-		// todo: why is this done twice?
-		void callback_fcn( uint currentEpoch, real currentError, real expected, real actual )
-		{
-			writefln("Epoch: [ %s ] | Error [ % f ] | Expected [ % f ] | Actual [ % f ]",currentEpoch, currentError,expected,actual );
-		}
-		
 		with (_nn_mgr)
 		{
-			_backprop.setProgressCallback(&callback_fcn, 1000 );
 			
 			_backprop.epochs = 0;
 			_backprop.learningRate = 0.05;
 			_backprop.momentum = 0.2;
-			_backprop.errorThreshold = 0.000001;
+			_backprop.errorThreshold = 0.1;
 			
 		}
 		//_record_keeper._time_window = COMMAND_AI_WINDOW; // TODO: where this go?

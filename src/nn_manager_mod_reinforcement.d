@@ -92,12 +92,12 @@ class NNManagerModReinforcement : NNManagerBase
 			return;
 		}
 		
-		int epochs = 25_000;//min(inputs.length, 5000);
+		int epochs = max(inputs.length, 10_000);
 		/+to!int( epoch_factor / inputs.length );
 		if (epochs == 0) epochs = 1=+/;
 		writefln("Training Mod-Reinforcement Network, %d epochs, %d records", epochs, output_records.length);
 		
-		_backprop.setProgressCallback(&callback, 100 );
+		_backprop.setProgressCallback(&callback, 500 );
 		
 		_backprop.epochs = epochs;
 		to!ModifiedReinforcementBackPropagation(_backprop).train(inputs, training_scores, output_records);
@@ -121,7 +121,7 @@ class NNManagerModReinforcement : NNManagerBase
 	override void adjust_NN_params()
 	{
 		//_backprop.learningRate *= 2.0; //TODO: is this called at a reasonable time? //TODO: make this bigger?
-		_backprop.errorThreshold = .1;
+		_backprop.errorThreshold = .005; // we can actually expect more accuracy from the non-history version because the record-sets are smaller.
 	} 
 	
 	

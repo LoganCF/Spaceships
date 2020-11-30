@@ -65,12 +65,7 @@ class BuildAI : BaseAI
 	
 	override void init_nnm()
 	{
-			int num_inputs = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3
-							 + NUM_UNIT_TYPES 
-							 + NUM_CAPTURE_POINTS + 3 + NUM_UNIT_TYPES * 4 + NUM_CAPTURE_POINTS * 2   // gen2
-							 + 2 // gen 2.5
-                             + NUM_CAPTURE_POINTS  // gen 3.5
-							 + NUM_CAPTURE_POINTS; // gen 4
+			int num_inputs = NUM_BASE_AI_INPUTS + 1;
 				
 			int num_outputs = NUM_UNIT_TYPES;
 			int num_hidden_neurons = 144; // because I wanted it to be.
@@ -84,16 +79,11 @@ class BuildAI : BaseAI
 	override void configure_backprop()
 	{
 		with(_nn_mgr){ //TODO: this should be defined by the NN_mgr, the AI object should call adjust_NN_parameters
-			void callback_fcn( uint currentEpoch, real currentError, real expected, real actual )
-		{
-			writefln("Epoch: [ %s ] | Error [ % f ] | Expected [ % f ] | Actual [ % f ]",currentEpoch, currentError,expected,actual );
-		}
-			_backprop.setProgressCallback(&callback_fcn, 1000 );
 		
 			_backprop.epochs = 0;
 			_backprop.learningRate = 0.05;
 			_backprop.momentum = 0.2;
-			_backprop.errorThreshold = 0.000001;
+			_backprop.errorThreshold = 0.1;
 		}
 	}
 	

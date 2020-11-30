@@ -1,13 +1,13 @@
 module explosion;
 
+import mathutil;
+
 import std.conv;
 import std.stdio;
 import std.format;
 
 import dsfml.graphics;
 import dsfml.system;
-
-alias Vector2!double Vector2d;
 
 
 // visual effect
@@ -76,9 +76,13 @@ class Explosion : Drawable
 		
 		Color blend(Color first, Color second, double ratio)
 		{
-			ubyte r = to!ubyte( (1.0 - ratio) * first.r  + ratio * second.r );
+			ubyte r = interpolate(first.r, second.r, ratio );
+			ubyte g = interpolate(first.g, second.g, ratio );;
+			ubyte b = interpolate(first.b, second.b, ratio );;
+			/+ubyte r = to!ubyte( (1.0 - ratio) * first.r  + ratio * second.r );
 			ubyte g = to!ubyte( (1.0 - ratio) * first.g  + ratio * second.g );
 			ubyte b = to!ubyte( (1.0 - ratio) * first.b  + ratio * second.b );
+			+/
 			return Color(r,g,b);
 		}
 		

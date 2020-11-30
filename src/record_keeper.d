@@ -238,15 +238,18 @@ class RecordKeeper
 		{
 			writeln("hist is null");
 		}
+		writefln("writing %d records to file.",_completed_records.length);
 		foreach(record ; _completed_records)
 		{
-			/+write("record is: ");
+			/+
+			write("record is: ");
 			if( record !is null)
 			{
 				record.print();
 			} else {
 				writeln(" null");
-			}+/
+			}
+			+/
 			hist.add_record_to_file(record);
 		}
 	}

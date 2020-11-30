@@ -34,6 +34,8 @@ import gamestateinfo;
 // qualifier takes a stateinfo, and a point index, same as prop fetchers
 
 
+//TODO: properties should have their own class, with (fetcher_fcn, bool ascending, epsilon = 0), and define a compare function
+
 static const int EVALUABLE_NO_RESULT = -1;
 
 interface Evaluable

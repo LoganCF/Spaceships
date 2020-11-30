@@ -10,7 +10,7 @@ See "License.txt"
 
 
 import team;    // for INCOME_PER_POINT
-import steering; // for Vector2d
+import mathutil; 
 
 import std.math;
 

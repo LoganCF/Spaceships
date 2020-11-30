@@ -53,7 +53,7 @@ class RecordHistory
 	{
 		if( mode != _mode)
 		{	
-			leave_filemode(_mode);
+			leave_filemode();
 		
 			_mode = mode;
 			//setup new mode
@@ -89,7 +89,7 @@ class RecordHistory
 	}
 	
 	//call when closing the file, or switching between reading and writing
-	void leave_filemode(Filemode mode)
+	void leave_filemode()
 	{
 		//cleanup previous mode
 		final switch(_mode)

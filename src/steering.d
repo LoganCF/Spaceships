@@ -17,11 +17,10 @@ import std.conv;
 import spaceships;
 import collision;
 import unit;
+import mathutil;
 
 import dsfml.graphics;
 import dsfml.system;
-
-alias Vector2!double Vector2d;
 
 const int window_height= 1000;
 const int window_width = 1500;
@@ -324,38 +323,10 @@ class FlockDot : Dot
 }
 
 
-
-
-
-double magnitude_sq (Vector2d v) 
-{
-	return v.x * v.x + v.y * v.y;
-}
-
-double magnitude (Vector2d v) 
-{
-	return sqrt( magnitude_sq(v) );
-}
-
-double square(double x )
-{
-	return pow(x,2);
-}
-
 /+float sqrt(float x)
 {
 	return pow(x, 0.5);
 }+/
-
-float clamp(float x, float min, float max )
-{
-	if( x < min) return min;
-	if( x > max) return max;
-	return x;
-}
-
-
-
 
 double get_dist_sq(Vector2d first, Vector2d second)
 {

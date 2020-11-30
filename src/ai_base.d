@@ -19,15 +19,27 @@ import core.memory;
 
 import and.api;
 import and.platform;
+
 import nn_manager;
 import record_keeper;
 import unit;
 import gamestateinfo;
+import spaceships;
+
 
 
 //TODO: move these constants to ai subclasses?
 const double BUILD_AI_WINDOW   = 60.0;
 const double COMMAND_AI_WINDOW = 20.0;
+
+const int NUM_BASE_AI_INPUTS = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 
+			+ NUM_UNIT_TYPES * 2 
+			+ NUM_CAPTURE_POINTS * (2 + 1 + 2) 
+			+ 8
+			+ NUM_CAPTURE_POINTS * 2
+			+ NUM_UNIT_TYPES 
+			+ 9
+			+ NUM_UNIT_TYPES * 4;
 
 struct DecisionResult
 {
@@ -43,7 +55,7 @@ class BaseAI
 	NNManagerBase _nn_mgr;
 	RecordKeeper _record_keeper;
 	
-	double CHANCE_OF_RANDOM_ACTION = 0.01;
+	double CHANCE_OF_RANDOM_ACTION = 0.0001;
 	
 
 	this( NNManagerBase in_nnm) 

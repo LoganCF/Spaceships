@@ -15,6 +15,7 @@ import std.format;
 
 import team;
 import steering;
+import mathutil;
 import collision;
 import unit;
 import factory_unit;

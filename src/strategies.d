@@ -29,7 +29,10 @@ const Strategy[] g_strategies = [
 	strat_guard_most_threatened,
 	strat_contest_caps,
 	strat_stay_safe,
-	strat_cover_friendly_territory
+	strat_cover_friendly_territory,
+	strat_expand_safe,
+	strat_kite_and_snipe,
+	strat_decap_least_gaurded
 ];
 
 const Behavior behv_stay_put = new Behavior(&qual_all, &prop_distance_to_unit, false);
@@ -40,14 +43,14 @@ const Behavior behv_stay_put = new Behavior(&qual_all, &prop_distance_to_unit, f
 
 //strat_attack_mothership
 const Strategy strat_attack_mothership = new Strategy("AMsh", [
-	new Behavior(&qual_has_enemy_mothership, &prop_threat_diff, false, &prop_distance_to_unit, false),
+	new Behavior(&qual_has_enemy_mothership, &prop_threat_diff, true, &prop_distance_to_unit, false),
 	to!(const Evaluable)(strat_attack_weakest_enemy_force)
 ]);
 
 //strat_attack_economy
 const Strategy strat_attack_economy = new Strategy("AEco", [
-	new Behavior(&qual_has_enemy_miners, &prop_threat_diff, false, &prop_distance_to_unit, false),
-	new Behavior(&qual_is_enemy, &prop_threat_diff, false, &prop_distance_to_unit, false),
+	new Behavior(&qual_has_enemy_miners, &prop_threat_diff, true, &prop_distance_to_unit, false),
+	new Behavior(&qual_is_enemy, &prop_threat_diff, true, &prop_distance_to_unit, false),
 	to!(const Evaluable)(strat_attack_weakest_enemy_force)
 ]);
 
@@ -104,6 +107,23 @@ const Strategy strat_cover_friendly_territory = new Strategy("Sprd", [
 	to!(const Evaluable)(strat_capture_least_guarded)
 ]);
 
+//strat_expand_safe
+const Strategy strat_expand_safe = new Strategy("CpEx", [
+	new Behavior(&qual_not_friendly_and_not_threatened, &prop_same_team_threat, false, &prop_distance_to_unit, false),
+	to!(const Evaluable)(strat_capture_least_guarded)
+]);
+
+//strat_kite_and_snipe
+const Strategy strat_kite_and_snipe = new Strategy("Kite", [
+	new Behavior(&qual_has_no_enemies, &prop_threat_diff, false, &prop_distance_to_unit, false),
+	to!(const Evaluable)(strat_attack_weakest_enemy_force)
+]);
+
+//strat_decap_least_gaurded
+const Strategy strat_decap_least_gaurded = new Strategy("DCap", [
+	new Behavior(&qual_is_enemy, &prop_threat, false, &prop_distance_to_unit, false),
+	to!(const Evaluable)(strat_contest_caps)
+]);
 
 
 ///////////////
@@ -132,6 +152,12 @@ bool qual_has_enemy_miners (StateInfo gamestate, int i)
 bool qual_has_enemies (StateInfo gamestate, int i)
 {
 	return gamestate._team._opponent._unit_total_cost_at_points[i] > 0.0;
+}
+
+//qual_has_no_enemies
+bool qual_has_no_enemies (StateInfo gamestate, int i)
+{
+	return !qual_has_enemies(gamestate, i);
 }
 
 //qual_not_friendly
@@ -226,6 +252,11 @@ bool qual_is_threatened (StateInfo gamestate, int i)
 	return point.getThreatAmountForTeam(opponent_id) > 0;
 }
 
+//qual_not_friendly_and_not_threatened
+bool qual_not_friendly_and_not_threatened (StateInfo gamestate, int i)
+{
+	return !qual_is_friendly(gamestate, i) && !qual_is_threatened(gamestate, i);
+}
 
 
 ///////////////
@@ -265,4 +296,12 @@ double prop_number_of_this_friendly_unit_type (StateInfo gamestate, int i)
 {
 	UnitType type = gamestate._unit._type;
 	return gamestate._team._unit_destination_counts[i][type];
+}
+
+//prop_same_team_threat
+double prop_same_team_threat (StateInfo gamestate, int i)
+{
+	TeamID team_id = gamestate._team._id;
+	CapturePoint point = gamestate._points[i];
+	return point.getThreatAmountForTeam(team_id);
 }

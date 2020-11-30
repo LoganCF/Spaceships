@@ -108,10 +108,10 @@ class NNManagerClassifier : NNManagerBase
 			return;
 		}
 		
-		int epochs = max(min(inputs.length, 5000),200);
+		int epochs = min(inputs.length*20, 5000);
 		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
 		
-		_backprop.setProgressCallback(&callback, 100 );
+		_backprop.setProgressCallback(&callback, 500 );
 		
 		_backprop.epochs += epochs;
 		_backprop.train(inputs, training_outputs);

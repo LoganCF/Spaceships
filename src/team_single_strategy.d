@@ -24,7 +24,7 @@ class SingleStrategyTeam : TeamObj
 
   this(TeamID in_id, inout Color in_color, inout char[] in_name, int in_strat_id)
   {
-    super( in_id, in_color, in_name );
+    super( in_id, in_color, in_name, false );
 	_strat_id = in_strat_id;
   }
   

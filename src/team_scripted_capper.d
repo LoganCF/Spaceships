@@ -19,7 +19,7 @@ class CapperTeam : TeamObj
 
   this(TeamID in_id, inout Color in_color, inout char[] in_name)
   {
-    super( in_id, in_color, in_name );
+    super( in_id, in_color, in_name, false );
   }
   
 	override string generate_display_str()

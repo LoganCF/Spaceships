@@ -11,6 +11,8 @@ import and.api;
 import and.platform;
 
 
+const bool g_train_on_opponent_records = false;
+
 
 // initializes, queries, and trains a Neural Network
 class NNManagerBase
@@ -112,6 +114,11 @@ class NNManagerBase
 			make_training_data_from_own_record( record );
 		}
 		
+		if (!g_train_on_opponent_records)
+		{
+			writeln("training on opponent's records is disabled.");
+			return;
+		}
 		foreach(record ; opponent._record_keeper._completed_records)
 		{
 			make_training_data_from_opponent_record( record );

@@ -122,8 +122,8 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 	override void adjust_NN_params()
 	{
 		super.adjust_NN_params();
-		_backprop.learningRate = 0.025;
-		_backprop.errorThreshold = 0.025;
+		_backprop.learningRate = 0.05;
+		_backprop.errorThreshold = 0.035; //determined experimentally to be smaller than the 0.05 for regular mod_r, but not take too long and be boring
 	}
 	
 	

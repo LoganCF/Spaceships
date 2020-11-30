@@ -266,6 +266,8 @@ void feedForward ( real [] inputs) {
 
 		int patternCount = 0;
 		real error = 0;
+		real total_abs_error = 0; /+++/
+		real last_error = 0.0; /+++/
 		
 		while ( 1 )
 		{
@@ -281,6 +283,7 @@ void feedForward ( real [] inputs) {
 
 			}
 			error = costFunction.f(expectedOutputs[patternCount],actual );
+			/+++/total_abs_error += abs(error);
 			/+++/assert(!isNaN(error));
 			
 			
@@ -296,7 +299,7 @@ void feedForward ( real [] inputs) {
 				writefln(" ] Cost [ %f ]",error);
 			}
 				 
-			if ( patternCount >= inputs.length ) patternCount = 0;
+			
 
 			if ( actualEpochs % callBackEpochs == 0 ) 
 			{
@@ -305,9 +308,27 @@ void feedForward ( real [] inputs) {
 					progressCallback( actualEpochs, error, 0, 0 );
 				}
 			}
+			
+			/+++/ // except conditional and patternCount = 0;
+			if ( patternCount >= inputs.length ) 
+			{
+				real avg_err = total_abs_error / patternCount;
+				if(last_error == 0.0) last_error = avg_err;
+				writefln("Average Error: % 7f (%+7f)", avg_err, avg_err - last_error);
+				last_error = avg_err;
+				// if average error is small enough, we're done!
+				if(total_abs_error / patternCount <= this.errorThreshold)
+				{
+					break;
+				}
+				
+				//otherwise, start at the beginning.
+				patternCount = 0;
+				total_abs_error = 0;
+			}
 
 			if ( ++actualEpochs >= epochs ) break;
-			if ( error <= this.errorThreshold ) break; // need to move this into a function
+			//if ( error <= this.errorThreshold ) break; // need to move this into a function
 
 		}
 		 

@@ -11,7 +11,8 @@ See "License.txt"
 
 import std.conv;
 import std.stdio;
-
+import std.math;
+import std.algorithm.comparison;
 
 import unit;
 import spaceships;
@@ -57,21 +58,23 @@ class NetworkInputDisplay : Drawable
 		}
 		
 		//categories are:
-		//unit counts at points
-		//point controlled by
-		//overall game state
-		//distance to point
-		//unit type
-		//health and location boredom timer
-		//unit lost and built counts
+		//unit counts at points (at each point and by type)
+		//unit counts by type
 		//total costs at point	
 		//threat at point
+		//point controlled by
+		//team status / overall game state
+		//distance to point and closest point
+		//unit type
+		//health, unit status and stats
+		//unit lost and built counts
+		
 		
 		/////////////////////
 		// Init row lengths
 		/////////////////////
-		int[] num_rows_in_categories = [ 4*NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2, 1 ];
-		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, 5, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 2, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS];
+		int[] num_rows_in_categories = [ 4*NUM_CAPTURE_POINTS, 2, 2, 1, 2, 1, 2, 1, 1, 4];
+		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 8, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 9, NUM_UNIT_TYPES];
 		
 		int sum = 0;
 		foreach( num_rows; num_rows_in_categories)
@@ -118,16 +121,17 @@ class NetworkInputDisplay : Drawable
 		// 12 rows: unit destination_counts
 		// 12 rows: enemy unit count at point
 		// 12 rows: enemy unit destination_counts
+		//  2 rows: units counts by type, opponent " " " "
+		//  2 rows: total unit cost at point and enemy " " " " "
+		//  1 row : threat diff at point
 		//  2 rows: who controls which points
+		//  1 row : team status / game state
 		//  2 rows: distance to point, closest point
-		//  1 row : incomes, game timer, ticket, enemy tickets
-		//  2 rows: distance to each point, closest point
 		//  1 row : unit type
-        //  1 row : current health and "boredom timer"
+        //  1 row : current health, "boredom timer", and stats
 		//  4 rows: unit lost counts, enemy unit lost counts, unit built counts, enemy unit built counts
-		//  2 rows: total unit cost at point and enemy total unit cost at point
-		//  1 row : threat at point
-		int[] num_rows_between_lines = [0, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 1, 2, 1, 1, 4, 2, 1 ];
+		
+		int[] num_rows_between_lines = [0, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 2, 2, 1, 2, 1, 2, 1, 1, 4 ];
 		int row_counter = 0;
 		
 		float line_width = (MAX_WIDTH - 1) * SPACING + MAX_WIDTH * DISPLAY_SIZE;
@@ -156,7 +160,7 @@ class NetworkInputDisplay : Drawable
 				//assert(index <= 127 && index >= 0, "shade out of range: " ~ to!string(index) ~ " at row: " ~ to!string(row_count) ~ " col: " ~ to!string(col_count) );
 				if(index < 0)
 				{
-					cell.fillColor = _shade_table[ 0 ];
+					cell.fillColor = _shade_table[ min(abs(index),127) ];
 					cell.outlineColor = Color.Red;
 					cell.outlineThickness = 1.0f;
 				} else

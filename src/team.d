@@ -16,6 +16,7 @@ import std.format;
 
 import spaceships;
 import steering;
+import mathutil;
 import collision;
 import unit;
 import factory_unit;
@@ -65,6 +66,7 @@ class TeamObj : Drawable
 	int[][]  _unit_counts;
 	int[][]  _unit_destination_counts;
 	double[] _unit_total_cost_at_points; // set by capture point objects
+	int[] _total_units_by_type;
 	int[]    _unit_built_counts;
 	int[]    _unit_lost_counts;
 	real     _total_army_value = 0.0; //TODO: this needs to be updated for the inital mothership. shuold there be a add_unit_to_team function?
@@ -103,8 +105,9 @@ class TeamObj : Drawable
 		_name = in_name.dup();
 		_train = in_train;
 		
-		_unit_built_counts.length = NUM_UNIT_TYPES;
-		_unit_lost_counts.length  = NUM_UNIT_TYPES;
+		_unit_built_counts.length   = NUM_UNIT_TYPES;
+		_unit_lost_counts.length    = NUM_UNIT_TYPES;
+		_total_units_by_type.length = NUM_UNIT_TYPES;
 		
 		_build_act_fn = in_build_act_fn;
 		_command_act_fn = in_command_act_fn;
@@ -319,6 +322,7 @@ class TeamObj : Drawable
 	//gen 3  : fewer unit types,  point-is-neutral changed to pointed-not-owned-by-me
 	//gen 3.5: closest point
 	//gen 4  : Threat value at each point.
+	//gen 5  : score, total units by type, total army value, unit stats
 	real[] get_common_ai_inputs(Unit unit)
 	{
 		real[] inputs = [ ];
@@ -331,6 +335,34 @@ class TeamObj : Drawable
 		add_num_units_scaled_by_cost_to_array(   _opponent._unit_destination_counts,  inputs );
 		//writefln("input size after unit counts: %d, expected value: %d, unittype has %d", inputs.length, NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4, NUM_UNIT_TYPES);
 		
+		//totals by type (gen5)
+		foreach ( int i, num_unit_of_type ; _total_units_by_type)
+		{
+			inputs ~= num_units_scaled_by_cost(num_unit_of_type, to!(UnitType)(i)) / 2.0;
+		}
+		foreach ( int i, num_unit_of_type ; _opponent._total_units_by_type)
+		{
+			inputs ~= num_units_scaled_by_cost(num_unit_of_type, to!(UnitType)(i)) / 2.0;
+		}
+		
+		// total unit cost at point
+		foreach(total_cost; _unit_total_cost_at_points)
+		{
+			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 2.0;  //TODO: make this a constant like a sane person
+		}
+		// enemy total cost at point
+		foreach(total_cost; _opponent._unit_total_cost_at_points)
+		{
+			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 2.0;
+		}
+		
+		// threat for each point (gen 4)
+		foreach( point ; _points )
+		{
+			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR;
+		}
+		
+		// points controlled by
 		foreach( point ; _points)
 		{
 			inputs ~= (point._team_id == _opponent._id ) ? 1.0 : 0.0;
@@ -340,14 +372,21 @@ class TeamObj : Drawable
 			inputs ~= (point._team_id != _id) ? 1.0 : 0.0;  //changed in gen 3,
 		}
 		
+		
+		// team status / overall game state
 		inputs ~= _income           / _match_info._total_income_from_points;
 		inputs ~= _opponent._income / _match_info._total_income_from_points;
+		inputs ~= _total_army_value           / UNIT_COST_SCALING_DIVISOR / 3.0;  //gen5
+		inputs ~= _opponent._total_army_value / UNIT_COST_SCALING_DIVISOR / 3.0;  //gen5
+		inputs ~= get_score_diff(); // gen5
 		inputs ~= _game_timer / _match_info._timer_max;
 		
 		inputs ~= _tickets           / _match_info._tickets_max;  // g2.5
 		inputs ~= _opponent._tickets / _match_info._tickets_max;  // g2.5
 		
-		//
+		
+		
+		//distance to points
 		double closest_dist  = 9999.0;
 		int    closest_point_index = -1;
 		foreach( i, point ; _points )
@@ -380,11 +419,17 @@ class TeamObj : Drawable
 		}
 			
 		inputs ~= unit._health_current / unit._health_max;
+		inputs ~= sigmoid(unit._location_boredom_timer  / TIME_SCALING_FACTOR); // gen2, location boredom
+		inputs ~= unit._max_vel / 300.0; // gen5, max speed over highest current speed
+		inputs ~= unit._max_accel / unit._max_vel; //gen5
+		inputs ~= unit._range / 300.0;   // gen5, range over highest current range
+		inputs ~= damage_type_matrix[unit._damage_type][ArmorType.Light]; //gen5, damage type
+		inputs ~= damage_type_matrix[unit._damage_type][ArmorType.Heavy]; //gen5, damage type
+		inputs ~= unit._armor_type == ArmorType.Light ? 1.0 : 0.0; //gen5, armor type
+		inputs ~= unit._armor_type == ArmorType.Heavy ? 1.0 : 0.0; //gen5, armor type
+
 		
 		// following are gen2 params
-		
-		// location boredom
-		inputs ~= sigmoid(unit._location_boredom_timer  / TIME_SCALING_FACTOR);
 		
 		// num unit lost
 		foreach( UnitType type, lost_count; _unit_lost_counts)
@@ -408,22 +453,6 @@ class TeamObj : Drawable
 			inputs ~= num_units_scaled_by_cost(built_count, type);
 		}
 		
-		// total unit cost at point
-		foreach(total_cost; _unit_total_cost_at_points)
-		{
-			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;  //TODO: make this a constant like a sane person
-		}
-		// enemy total cost at point
-		foreach(total_cost; _opponent._unit_total_cost_at_points)
-		{
-			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 3.0;
-		}
-		
-		// threat for each point (gen 4)
-		foreach( point ; _points )
-		{
-			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR;
-		}
 		
 		
 		foreach (input; inputs)
@@ -646,7 +675,7 @@ const real UNIT_COST_SCALING_DIVISOR = get_unit_build_cost(UnitType.Battleship) 
 
 real num_units_scaled_by_cost(int unit_count, UnitType unit_type)
 {
-	return unit_count * get_unit_build_cost( unit_type ) / UNIT_COST_SCALING_DIVISOR;
+	return to!(real)(unit_count) * get_unit_build_cost( unit_type ) / UNIT_COST_SCALING_DIVISOR;
 }
 
 
