@@ -38,12 +38,15 @@ import team_mod_r_strat;
 import team_mod_r_with_history;
 import team_mod_r_with_history_strat;
 import team_strategy;
+import ai_base;
 import ai_build;
 import ai_command;
 import matchinfo;
 import strategy;
 import strategies;
 import explosion;
+
+import nn_manager_mod_r_with_history; // TODO: temp, we can remove this with better abstraction;
 
 import dsfml.graphics;
 import dsfml.system;
@@ -166,6 +169,9 @@ PlayerIdentity[]  ai_identities = [
 						  ,PlayerIdentity( "DarkOliveGreen",Color(0x55,0x6B,0x2F), AiType.NeuralNetModReinforcement, ActFnType.ReLU)
 						  ,PlayerIdentity( "DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
 						  ,PlayerIdentity( "DarkTurquiose__", Color(0x00, 0xCE, 0xFF), AiType.Strategy4)
+						  ,PlayerIdentity( "Coral_MRLH"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
+						  ,PlayerIdentity( "Chartreuse_MRLH", Color(0x7F, 0xFF, 0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
+						  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
 						  /+
 						  ,PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.Strategy1)
 						  ,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.Strategy2)
@@ -183,6 +189,9 @@ PlayerIdentity[]  ai_identities = [
 PlayerIdentity manual_identity = PlayerIdentity( "DarkGrey",forest_green,AiType.Manual);
 							
 							//,NamedColor(0xDC, 0x14, 0x3C, "Crimson")
+							
+int[string] win_counts;
+int[string] loss_counts;
 
 //factory function for various kinds of TeamObj
 TeamObj make_team(TeamID id, PlayerIdentity player_identity)
@@ -283,7 +292,10 @@ void main(string[] args)
 		} else if(args[1] == "nemesis")
 		{
 			run_duel_manual(args[2..$], window);
-		} else 
+		} else if(args[1] == "train")
+		{
+			run_training(args[2..$], window);
+		}else 
 		{
 			run_tourney(args, window);
 		}
@@ -423,6 +435,90 @@ void run_duel_manual(string [] args, RenderWindow window)
 }
 
 
+void run_training (string [] args, RenderWindow window)
+{
+	g_is_manual_game = false;
+	
+	int player_id;
+	string what_ai = "both";
+	int num_records = -1;
+	int num_epochs  = -1;
+	real error_threshold = -1;
+	
+	if (args.length >= 1)
+	{
+		player_id = to!int(args[0]);
+	} else {
+		writeln("player# required");
+		return;
+	}
+	if (args.length >= 2)
+		what_ai = args[1];
+	if (args.length >= 3)
+		num_records = to!int(args[2]);
+	if (args.length >= 4)
+		num_epochs = to!int(args[3]);
+	if (args.length >=5)
+		error_threshold = to!(real)(args[4]);
+	
+	
+	bool train_build = false;
+	bool train_command = false;
+	if (what_ai == "both")
+	{
+		train_build = true;
+		train_command = true;
+	} else if  (what_ai == "command")
+	{
+		train_command = true;
+	} else if  (what_ai == "build")
+	{
+		train_build = true;
+	} else 
+	{
+		writefln("invalid value '%s' for ai, use (both|command|build)", what_ai);
+	} 
+	g_teams[0]   = make_team(TeamID.One, ai_identities[player_id] );
+	TeamObj team = g_teams[0];
+	
+	//TODO: abstract out the history stuff so we can use it on nets that don't normally use it.
+	// filling the training records from history could be a function of the base nn_manager (these are never opponent's records)
+	
+	void train_ai(BaseAI ai)
+	{
+		NNManagerModReinforcementWithHistory nnm = to!(NNManagerModReinforcementWithHistory)(ai._nn_mgr);
+		nnm._hist.set_read_from_start();
+		if (num_records == -1)
+			nnm._record_limit = nnm._hist._num_records;
+		else
+			nnm._record_limit = num_records;
+		if (num_epochs == -1)
+			nnm._epoch_limit = nnm._record_limit * 100;
+		else
+			nnm._epoch_limit  = num_epochs;
+		if (error_threshold > 0)
+		{
+			nnm._backprop.errorThreshold = error_threshold; //TODO: fix bad oop.
+		}
+		ai.make_training_data( null );
+		ai.train_net();
+		ai.save_net();
+		//ai.train_net();//testest
+	}
+	
+	if( train_build )
+	{ 
+		writeln("\nTraining Build AI");
+		train_ai(team._build_ai);
+	}
+	if ( train_command )
+	{ 
+		writeln("\nTraining Command AI");
+		train_ai(team._command_ai);
+	}
+}
+
+
 void run_match(string [] args, RenderWindow window)
 {
 	
@@ -480,43 +576,51 @@ void run_match(string [] args, RenderWindow window)
 	
 	g_unit_count = 0;
 	
-	
+	//TODO: these parameterized units don't get registered
 	for( int i = 0; i < num_red_fighters   ; ++i )
 	{
 		dots ~= make_unit(UnitType.Interceptor, g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
+		g_teams[0].notify_unit_created(UnitType.Interceptor);
 	}
 	for( int i = 0; i < num_red_lightships ; ++i )
 	{
 		dots ~= make_unit(UnitType.Destroyer   , g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
+		g_teams[0].notify_unit_created(UnitType.Destroyer);
 	}
 	for( int i = 0; i < num_red_bigships   ; ++i )
 	{
 		dots ~= make_unit(UnitType.Battleship , g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
+		g_teams[0].notify_unit_created(UnitType.Battleship);
 	}
 	for( int i = 0; i < num_red_mthrships  ; ++i )
 	{
 		FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[0], g_teams[0]._color, uniform(0.0,window_width/2), uniform(0.0,window_height));
 		dots ~= factory1;
 		factories ~= factory1;
+		g_teams[0].notify_unit_created(UnitType.Mothership);
 	}
 	
 	for( int i = 0; i < num_blu_fighters   ; ++i )
 	{
 		dots ~= make_unit(UnitType.Interceptor, g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
+		g_teams[1].notify_unit_created(UnitType.Interceptor);
 	}
 	for( int i = 0; i < num_blu_lightships ; ++i )
 	{
 		dots ~= make_unit(UnitType.Destroyer   , g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
+		g_teams[1].notify_unit_created(UnitType.Destroyer);
 	}
 	for( int i = 0; i < num_blu_bigships  ; ++i )
 	{
 		dots ~= make_unit(UnitType.Battleship , g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
+		g_teams[1].notify_unit_created(UnitType.Battleship);
 	}
 	for( int i = 0; i < num_blu_mthrships  ; ++i )
 	{
 		FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[1], g_teams[1]._color, uniform(window_width/2,window_width), uniform(0.0,window_height));
 		dots ~= factory1;
 		factories ~= factory1;
+		g_teams[1].notify_unit_created(UnitType.Mothership);
 	}
 	
 	const double cap_radius = 100.0;
@@ -562,9 +666,11 @@ void run_match(string [] args, RenderWindow window)
 	FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[0], g_teams[0]._color, cap_placement_scale*1.0, cap_placement_scale*1.0, g_teams[0]._is_player_controlled ); 
 		dots      ~= factory1;
 		factories ~= factory1;
-	factory1             = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[1], g_teams[1]._color, cap_placement_scale*7.0, cap_placement_scale*7.0, g_teams[1]._is_player_controlled );
-		dots      ~= factory1;
-		factories ~= factory1;
+		g_teams[0].notify_unit_created(UnitType.Mothership);
+	FactoryUnit factory2 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[1], g_teams[1]._color, cap_placement_scale*7.0, cap_placement_scale*7.0, g_teams[1]._is_player_controlled );
+		dots      ~= factory2;
+		factories ~= factory2;
+		g_teams[1].notify_unit_created(UnitType.Mothership);
 	
 	
 	g_teams[0].set_ai_input_display(  Vector2f(window.size.x - 200, 100) ); // use display size?
@@ -606,8 +712,8 @@ void run_match(string [] args, RenderWindow window)
 		
 			if( Keyboard.isKeyPressed(Keyboard.Key.End) )
 			{
-				g_teams[0].handle_endgame(false);
-				g_teams[1].handle_endgame(false);
+				g_teams[0].notify_game_over(false);
+				g_teams[1].notify_game_over(false);
 			}
 			
 			if( Keyboard.isKeyPressed(Keyboard.Key.Home) )
@@ -617,14 +723,14 @@ void run_match(string [] args, RenderWindow window)
 			
 			if( Keyboard.isKeyPressed(Keyboard.Key.Num1) || Keyboard.isKeyPressed(Keyboard.Key.Numpad1) )
 			{
-				g_teams[1].handle_endgame(false);
-				g_teams[0].handle_endgame(true);
+				g_teams[1].notify_game_over(false);
+				g_teams[0].notify_game_over(true);
 			}
 			
 			if( Keyboard.isKeyPressed(Keyboard.Key.Num2) || Keyboard.isKeyPressed(Keyboard.Key.Numpad2) )
 			{
-				g_teams[0].handle_endgame(false);
-				g_teams[1].handle_endgame(true);
+				g_teams[0].notify_game_over(false);
+				g_teams[1].notify_game_over(true);
 			}
 		
 		}
@@ -658,8 +764,8 @@ void run_match(string [] args, RenderWindow window)
 		game_timer += dt;
 		if(game_timer > game_time_limit && !allow_overtime)
 		{
-			g_teams[0].handle_endgame(false);
-			g_teams[1].handle_endgame(false);
+			g_teams[0].notify_game_over(false);
+			g_teams[1].notify_game_over(false);
 		}
 		//writefln("dt= %f", dt);
 		
@@ -720,8 +826,18 @@ void run_match(string [] args, RenderWindow window)
 			}
 		}
 		
-		game_over = g_teams[0]._game_over || g_teams[1]._game_over;// TODO: was this done last for a reason?
+		foreach(dot; dots)
+		{
+			if(dot.is_dead())
+			{
+				explosions ~= new Explosion(dot._pos, dot._draw_size, 1.0 + dot._draw_size/5.0, 3.0);
+			}
+		}
+		
+		game_over = g_teams[0]._game_over || g_teams[1]._game_over;
+		///////////////////
 		//draw everything
+		///////////////////
 		if(time_since_last_draw >= 1/framerate || game_over)
 		{
 			time_since_last_draw = 0.0;
@@ -760,21 +876,44 @@ void run_match(string [] args, RenderWindow window)
 		
 		}
 		
-		foreach(dot; dots)
-		{
-			if(dot.is_dead())
-			{
-				explosions ~= new Explosion(dot._pos, dot._draw_size, 1.0 + dot._draw_size/5.0, 3.0);
-			}
-		}
+		///////////
+		//cleanup
+		///////////
+		
 		//remove any dead stuff
 		dots = remove!("a.is_dead()")(dots);
 		explosions = remove!("a.is_dead()")(explosions);
 		factories = remove!("a.is_dead()")(factories);
 		
-		
-		
-		//writefln("%d dots left",dots.length);
+		if(game_over)
+		{
+			// update win/loss counts
+			foreach(team; g_teams[0..2])
+			{
+				string team_name = team._name.idup();
+				if( (team_name in win_counts) is null)
+					win_counts[team_name] = 0;
+				if( (team_name in loss_counts) is null)
+					loss_counts[team_name] = 0;
+				if(team._won_game)
+					win_counts[team_name]++;
+				else
+					loss_counts[team_name]++;
+					
+				writefln("%s: %d Wins, %d Losses", team_name, win_counts[team_name], loss_counts[team_name]);
+				
+			}
+			foreach(team; g_teams[0..2])
+			{
+				team.handle_endgame_parrallel(); // TODO: did we always do the losing team first for any reason?
+			}
+			
+			// wait on threadpool tasks
+			g_teams[0].wait_on_training_tasks();
+			g_teams[1].wait_on_training_tasks();
+			
+			write("\n\n");
+		}
 		
 		//window.draw(waypoint);
 		

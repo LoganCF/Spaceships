@@ -68,7 +68,7 @@ class BuildAI : BaseAI
 			int num_inputs = NUM_BASE_AI_INPUTS + 1;
 				
 			int num_outputs = NUM_UNIT_TYPES;
-			int num_hidden_neurons = 144; // because I wanted it to be.
+			int[] num_hidden_neurons = [144, 48];
 			
 			
 			_nn_mgr.do_init(num_inputs, num_hidden_neurons, num_outputs);	

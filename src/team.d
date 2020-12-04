@@ -13,6 +13,8 @@ import std.algorithm.mutation;
 import std.conv;
 import std.stdio;
 import std.format;
+import std.parallelism;
+import std.traits;
 
 import spaceships;
 import steering;
@@ -39,6 +41,8 @@ enum TeamID {One, Two, Neutral}
 
 const double INCOME_BASE = 20.0;
 const double INCOME_PER_POINT = 20.0;
+
+
 
 
 //Team object: responsible for maintaining the game state of one player's fleet, 
@@ -69,18 +73,24 @@ class TeamObj : Drawable
 	int[] _total_units_by_type;
 	int[]    _unit_built_counts;
 	int[]    _unit_lost_counts;
-	real     _total_army_value = 0.0; //TODO: this needs to be updated for the inital mothership. shuold there be a add_unit_to_team function?
+	real     _total_army_value = 0.0; //TODO: this needs to be updated for the initial mothership. should there be a add_unit_to_team function?
 	
 	BaseAI _build_ai;//TODO: interface for build/ command ai?
 	BaseAI _command_ai;
+	alias TaskTrainAI = ReturnType!(task!(train_ai, BaseAI, BaseAI, string, string));
+	TaskTrainAI _task_train_build;
+	TaskTrainAI _task_train_command;
 	
 	int _num_factories    = 0;
 	int _num_orders_given = 0;
 	int _num_builds       = 0;
 	int _num_points_owned = 0;
 	
+	ScoreData _score_data;
+	int _total_unit_count = 0;
 	double _game_timer = 0.0;
 	bool   _game_over = false;
+	bool   _won_game;
 	
 	bool _draw_NN_inputs;
 	NetworkInputDisplay _input_disp;
@@ -147,6 +157,28 @@ class TeamObj : Drawable
 		_factories = null; // this may avoid a memleak TODO: test this.
 	}
 	
+	//notify the team that a unit was added to it.
+	void notify_unit_created(UnitType type)
+	{
+		_unit_built_counts[type]++;
+		_total_units_by_type[type]++;
+		_total_army_value += get_unit_build_cost(type);
+		_total_unit_count++;
+	}
+	void notify_unit_destroyed(UnitType type)
+	{
+		_unit_lost_counts[type]++;
+		_total_units_by_type[type]--;
+		_total_army_value -= get_unit_build_cost(type);
+		_total_unit_count--;
+	}
+	
+	void notify_game_over(bool victory)
+	{
+		_game_over = true;
+		_won_game = victory;
+	}
+	
 	static const double MINER_INCOME_FRACTION = 0.25;
 	
 	void update(CollisionGrid grid, double dt)
@@ -189,17 +221,24 @@ class TeamObj : Drawable
 			_income_per_factory = 0.0;
 		}
 		
-		//assert(_opponent !is null );
 		
-		
-		if( _opponent !is null && _num_points_owned < _opponent._num_points_owned)
+		if(_opponent !is null)
 		{
-			_tickets -= (_opponent._num_points_owned - _num_points_owned) * dt;
-			if( _tickets <= 0.0 )
+			if(_num_points_owned < _opponent._num_points_owned)
 			{
-				handle_endgame(false); //you lose!
-				_opponent.handle_endgame(true); // opponent wins!
+				_tickets -= (_opponent._num_points_owned - _num_points_owned) * dt;
+				if( _tickets <= 0.0 )
+				{
+					notify_game_over(false); //you lose!
+					_opponent.notify_game_over(true); // opponent wins!
+				}
 			}
+			if(_total_unit_count == 0)
+			{
+				notify_game_over(false); //you lose!
+				_opponent.notify_game_over(true); // opponent wins!
+			}
+			
 		} 
 		
 		if(_opponent is null) writeln("Opponent is null.");
@@ -270,7 +309,7 @@ class TeamObj : Drawable
 		int territory_diff = get_territory_diff();
 		//real score = compute_partial_score(this) - compute_partial_score(_opponent); 
 		//assert(!isNaN(score));
-		real score = get_score_diff();
+		real score = get_score();
 		_build_ai  .update_records(now, territory_diff, score);
 		_command_ai.update_records(now, territory_diff, score);
 	}
@@ -359,8 +398,8 @@ class TeamObj : Drawable
 		// threat for each point (gen 4)
 		foreach( point ; _points )
 		{
-			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR;
-		}
+			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR / 2.0;
+		} ///336
 		
 		// points controlled by
 		foreach( point ; _points)
@@ -371,14 +410,14 @@ class TeamObj : Drawable
 		{
 			inputs ~= (point._team_id != _id) ? 1.0 : 0.0;  //changed in gen 3,
 		}
-		
+		///360
 		
 		// team status / overall game state
 		inputs ~= _income           / _match_info._total_income_from_points;
 		inputs ~= _opponent._income / _match_info._total_income_from_points;
-		inputs ~= _total_army_value           / UNIT_COST_SCALING_DIVISOR / 3.0;  //gen5
-		inputs ~= _opponent._total_army_value / UNIT_COST_SCALING_DIVISOR / 3.0;  //gen5
-		inputs ~= get_score_diff(); // gen5
+		inputs ~= _total_army_value           / UNIT_COST_SCALING_DIVISOR / 4.0;  //gen5
+		inputs ~= _opponent._total_army_value / UNIT_COST_SCALING_DIVISOR / 4.0;  //gen5
+		inputs ~= get_score(); // gen5
 		inputs ~= _game_timer / _match_info._timer_max;
 		
 		inputs ~= _tickets           / _match_info._tickets_max;  // g2.5
@@ -391,7 +430,8 @@ class TeamObj : Drawable
 		int    closest_point_index = -1;
 		foreach( i, point ; _points )
 		{
-			double dist = sqrt( square(unit._pos.x - point._pos.x) + square(unit._pos.y - point._pos.y) );
+			real dist_sq = square(unit._pos.x - point._pos.x) + square(unit._pos.y - point._pos.y);
+			real dist = dist_sq >= 0.0 ? sqrt( dist_sq ) : 0.0;
 			inputs ~= dist / _match_info._battlefield_diagonal;
 			if(dist < closest_dist)
 			{
@@ -410,6 +450,7 @@ class TeamObj : Drawable
 			}
 		}
 		
+		// unit type
 		for( UnitType iter = UnitType.min; iter < UnitType.max; ++iter )
 		{
 			if(iter != UnitType.None)
@@ -458,6 +499,16 @@ class TeamObj : Drawable
 		foreach (input; inputs)
 		{
 			assert(!isNaN(input), "garbage in!");
+		}
+		
+		foreach(ref real input ; inputs)
+		{
+			// tiny values from floating point maths can get into the NN and cause NaNs.
+			if(input < 0.0000001 && input > -0.0000001)
+			{
+				input = 0.0;
+			}
+			
 		}
 		
 		return inputs;
@@ -559,31 +610,102 @@ class TeamObj : Drawable
 		_build_ai.record_external_decision(inputs, decision);
 	}
 	
-
-	void handle_endgame(bool won_game)
+	
+	void update_records_endgame()
 	{
-		_game_over = true;
-		
+		_build_ai  .update_records_endgame(_won_game, get_territory_diff(), get_score() );
+		_command_ai.update_records_endgame(_won_game, get_territory_diff(), get_score() );
+	}
+
+	static void train_ai(BaseAI ai, BaseAI opp_ai, string player_description, string ai_description) 
+	{
+		// TODO: write to a stream, then write that to console?
+		writef("Generating training set for %s's %s AI: ", player_description, ai_description);
+		//alias train_build = _build_ai.make_training_data;
+		ai.make_training_data(opp_ai);
+		writefln("%s", ai.get_training_header() );
+		writefln("Training %s's %s AI:", player_description, ai_description);
+		ai.train_net();
+		ai.save_net(); 
+		writefln("done with all training tasks for %s's %s ai.", player_description, ai_description);
+	}
+	
+	void wait_on_training_tasks()
+	{
+		if(_task_train_build !is null)
+		{
+			writeln("waiting for build ai");
+			_task_train_build.yieldForce();
+		}
+		if(_task_train_command !is null)
+		{
+			writeln("waiting for command ai");
+			_task_train_command.yieldForce();
+		}
+	}
+	
+	
+	void handle_endgame_parrallel()
+	{
 		//update records for all AIs, doing it twice won't cause any problems (because it uses queues for pending records)
-		_build_ai  .update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
-		_command_ai.update_records_endgame(won_game, get_territory_diff(), get_score_diff() );
-		
-		_opponent._build_ai  .update_records_endgame(!won_game, -get_territory_diff(), -get_score_diff() );
-		_opponent._command_ai.update_records_endgame(!won_game, -get_territory_diff(), -get_score_diff() );
+		//done here so that we are sure both teams' records are closed when we do training (so they can learn off the opponent's decisions as well)
+		update_records_endgame();
+		_opponent.update_records_endgame();
 		
 		if(!_train)
 		{
 			return;
 		}
 		
-		if(won_game)
+		void make_training_tasks(string player_description)
+		{
+			_task_train_build = task!train_ai(_build_ai, _opponent._build_ai, player_description, "build");
+			std.parallelism.taskPool.put(_task_train_build);
+			
+			_task_train_command = task!train_ai(_command_ai, _opponent._command_ai, player_description, "command");
+			std.parallelism.taskPool.put(_task_train_command);
+		}
+		
+		if(_won_game)
+		{
+			writefln("-----------%s Won!   %d orders, %d builds----------", _name, _num_orders_given, _num_builds);
+			//TODO: this should be generated by NNM //TODO: what was I talking about?
+			
+			make_training_tasks("winner");
+			
+		} else {
+			writefln("-----------%s Lost!  %d orders, %d builds-----------", _name, _num_orders_given, _num_builds);
+			
+			make_training_tasks("loser");
+		}
+		
+		
+	}
+	
+	
+	void handle_endgame()
+	{
+		
+		//update records for all AIs, doing it twice won't cause any problems (because it uses queues for pending records)
+		//done here so that we are sure both teams' records are closed when we do training (so they can learn off the opponent's decisions as well)
+		update_records_endgame();
+		_opponent.update_records_endgame();
+		
+		if(!_train)
+		{
+			return;
+		}
+		
+		if(_won_game)
 		{
 			writefln("-----------%s Won!   %d orders, %d builds----------", _name, _num_orders_given, _num_builds);
 			//TODO: replace these prints with an overloadable function or two 
 			//TODO: this should be generated by NNM
+			
 			write("Generating training set for winner's build AI: ");
 			_build_ai  .make_training_data(_opponent._build_ai  );
 			writefln("%s", _build_ai.get_training_header() );
+
 			
 			write("Generating training set for winner's command AI: ");
 			_command_ai.make_training_data(_opponent._command_ai);
@@ -638,10 +760,84 @@ class TeamObj : Drawable
 	
 	void set_ai_input_display(Vector2f display_location)
 	{
-		_input_disp = new NetworkInputDisplay( display_location, _color ); 
+		_input_disp = new NetworkInputDisplay( display_location, _color, _opponent._color ); 
+	}
+	
+	real get_score()
+	{
+		static const real iota = 0.000001; // a small value, so we can treat near-zero values as 0
+		
+		// returns a value between -1 and 1 indicating the relative size of the inputs.
+		// inputs are assumed to be nonnegative
+		// return value approaches 1 as ours/theirs approaches infinity, and -1 as ours/theirs approaches 0
+		static real score_by_proportion(real ours, real theirs)
+		{
+			if (ours == theirs || (ours < iota && theirs < iota))
+				return 0.0;
+			if (ours < iota)
+				return -1.0;
+			if (theirs < iota)
+				return 1.0;
+				
+			if (ours < theirs)
+				return -1.0 + ours/theirs;
+			else
+				return 1.0 - theirs/ours;
+			
+		}
+		// input: between -1 and 1
+		// returns: a value in that same range, but biased towards the outside
+		// uses a piecewise linear mapping where .5 maps to .75, and anything over .5 is compressed into the remaining number-space
+		static real scoring_scaling(real x)
+		{
+			if (abs(x) <= .5)
+				return x * 1.5;
+			else
+				return sgn(x) * ((.5 * 1.5) + ((abs(x)-.5)/2));
+		}
+		
+		
+		// compute score for various categories and average
+		real score_territory = scoring_scaling((_num_points_owned - _opponent._num_points_owned) / to!real(NUM_CAPTURE_POINTS));
+		real score_army      = scoring_scaling(score_by_proportion(_total_army_value, _opponent._total_army_value));
+		real score_tickets   = (_tickets - _opponent._tickets) / to!real(g_starting_tickets);
+		real score_economy   = scoring_scaling(score_by_proportion( _income_per_factory * _num_factories, _opponent._income_per_factory * _opponent._num_factories));
+		
+		
+		real score = (score_territory + score_army + score_tickets + score_economy) / 4.0;
+		assert (!isNaN(score));
+		if(score >  1.0){ score =  1.0; }
+		if(score < -1.0){ score = -1.0; }
+		
+		_score_data.score_territory = score_territory;
+		_score_data.score_army      = score_army;    
+		_score_data.score_tickets   = score_tickets; 
+		_score_data.score_economy   = score_economy;  
+		_score_data.score           = score;  
+		
+		return score;
+		
+		struct dummy_so_we_can_have_a_unittest_in_a_function
+		{
+			unittest
+			{
+				assert (score_by_proportion(0.0,0.0) == 0.0);
+				assert (score_by_proportion(1.0, 2.0) == -.5);
+				assert (score_by_proportion(2.0, 1.0) == .5);
+				assert (score_by_proportion(4.0, 1.0) == .75);
+				
+				assert (scoring_scaling(.5) == .75);
+				assert (scoring_scaling(-.5) == -.75);
+				assert (scoring_scaling(.6) == .8);
+				assert (scoring_scaling(.4) == .6);
+				assert (scoring_scaling(-.4) == -.6);
+				assert (scoring_scaling(0.0) == 0.0);
+				
+			}
+		}
 	}
 
-	
+	// legacy scoring
 	real get_score_diff()
 	{
 		real score = get_partial_score(this) - get_partial_score(_opponent);
@@ -658,7 +854,31 @@ class TeamObj : Drawable
 }
 
 
-
+struct ScoreData 
+{
+	real score_territory;
+	real score_army;
+    real score_tickets;
+    real score_economy;
+	real score;	
+	
+	ref real opIndex(int i)
+	{
+		switch (i)
+		{
+			case 0:
+				return score_territory;
+			case 1:
+				return score_tickets;
+			case 2:
+				return score_army;
+			case 3:
+				return score_economy;
+			default: 
+				return score; // yep, definitely not gonna regret this jank
+		}
+	}
+}
 
 void add_num_units_scaled_by_cost_to_array (int[][] count_array , ref real[] neuron_input_array ) 
 {
@@ -671,7 +891,7 @@ void add_num_units_scaled_by_cost_to_array (int[][] count_array , ref real[] neu
 	}
 }
 
-const real UNIT_COST_SCALING_DIVISOR = get_unit_build_cost(UnitType.Battleship) * 10;
+const real UNIT_COST_SCALING_DIVISOR = get_unit_build_cost(UnitType.Battleship) * 5;
 
 real num_units_scaled_by_cost(int unit_count, UnitType unit_type)
 {
@@ -697,7 +917,7 @@ real always_positive_to_01(real input)
 }
 
 
-
+// legacy scoring
 // computes a score in the approximate range [-1.0, 1.0] It can go a bit over or under because we use ReLUs in the AI (which are not bound to that range)
 // the opponent's score should be subtracted from this TODO: rename this function
 real get_partial_score(TeamObj t)

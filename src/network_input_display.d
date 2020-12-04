@@ -24,7 +24,7 @@ import dsfml.graphics;
 
 //static Color[] grey_table
 
-
+const int NUM_SHADES = 128;
 
 
 class NetworkInputDisplay : Drawable
@@ -37,16 +37,20 @@ class NetworkInputDisplay : Drawable
 	
 	Vector2f _base_position;
 	Color    _base_color;
+	Color    _alternate_base_color;
 	
-	Color[128] _shade_table;
+	Color[NUM_SHADES] _shade_table;
+	Color[NUM_SHADES] _alternate_shade_table;
+	bool[] _use_alternate_shade;
 	
 	Vertex[][] _lines;
 	
 	
-	this(Vector2f in_position, Color in_base_color)
+	this(Vector2f in_position, Color in_base_color, Color in_alternate_base_color)
 	{
 		_base_position = in_position;
 		_base_color    = in_base_color;
+		_alternate_base_color = in_alternate_base_color;
 	
 		for(int i = 0 ; i < _shade_table.length; ++i)
 		{
@@ -56,6 +60,16 @@ class NetworkInputDisplay : Drawable
 			ubyte b = to!ubyte( shade / 255.0f * _base_color.b );
 			_shade_table[i] = Color(r, g, b);
 		}
+		
+		for(int i = 0 ; i < _shade_table.length; ++i)
+		{
+			double shade = i * 2; 
+			ubyte r = to!ubyte( shade / 255.0f * _alternate_base_color.r );
+			ubyte g = to!ubyte( shade / 255.0f * _alternate_base_color.g );
+			ubyte b = to!ubyte( shade / 255.0f * _alternate_base_color.b );
+			_alternate_shade_table[i] = Color(r, g, b);
+		}
+		
 		
 		//categories are:
 		//unit counts at points (at each point and by type)
@@ -76,6 +90,8 @@ class NetworkInputDisplay : Drawable
 		int[] num_rows_in_categories = [ 4*NUM_CAPTURE_POINTS, 2, 2, 1, 2, 1, 2, 1, 1, 4];
 		int[] num_elements_for_rows_in_category = [NUM_UNIT_TYPES, NUM_UNIT_TYPES, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS, 8, NUM_CAPTURE_POINTS, NUM_UNIT_TYPES, 9, NUM_UNIT_TYPES];
 		
+		//init array of rows
+		int total_elements = 0;
 		int sum = 0;
 		foreach( num_rows; num_rows_in_categories)
 		{
@@ -83,6 +99,7 @@ class NetworkInputDisplay : Drawable
 		}
 		_cells.length = sum;
 		
+		//now init the rows themselves
 		int start = 0;
 		int end   = 0;
 		for( int category_iter = 0 ; category_iter < num_elements_for_rows_in_category.length ; ++category_iter )
@@ -92,9 +109,39 @@ class NetworkInputDisplay : Drawable
 			{
 				int num_elements   = num_elements_for_rows_in_category[category_iter];
 				_cells[row].length = num_elements;
+				total_elements += num_elements;
 			}
 			start += num_rows_in_categories[ category_iter ];
 		}
+
+		
+		///////////////////////////////////
+		// Mark which use alternate shade
+		///////////////////////////////////
+		
+		_use_alternate_shade.length = total_elements;
+		_use_alternate_shade[] = false;
+		
+		
+		int base_index = 0;
+		void mark(int start, int len)
+		{
+			_use_alternate_shade[base_index + start .. base_index + start + len] = true;
+			base_index += start + len;
+		}
+		
+		// TODO: the data really needs to be structured in some way
+		mark(2*NUM_CAPTURE_POINTS*NUM_UNIT_TYPES, 2*NUM_CAPTURE_POINTS*NUM_UNIT_TYPES); // opponent unit locations and destinations
+		
+		mark(NUM_UNIT_TYPES, NUM_UNIT_TYPES); // opp. total units by type
+		mark(NUM_CAPTURE_POINTS,NUM_CAPTURE_POINTS); // total cost at point
+		mark(NUM_CAPTURE_POINTS, NUM_CAPTURE_POINTS); // is point enemy
+		mark(NUM_CAPTURE_POINTS+1,1); // income
+		mark(1,1); //total army value
+		mark(3,1); // tickets
+		mark(NUM_CAPTURE_POINTS*2+NUM_UNIT_TYPES+9+NUM_UNIT_TYPES*2, NUM_UNIT_TYPES*2); // units built/lost counts, skipping unit stats and type
+		
+		
 		
 		///////////////////////////
 		// Init cells in each row
@@ -146,6 +193,8 @@ class NetworkInputDisplay : Drawable
 						];
 		}
 		
+
+		
 	}
 	
 	
@@ -157,21 +206,22 @@ class NetworkInputDisplay : Drawable
 			foreach(col_count, cell; row )
 			{
 				int index = to!int( inputs[input_iter] * ( _shade_table.length - 1 ) );
+				Color[] table = _use_alternate_shade[input_iter] ? _alternate_shade_table : _shade_table;
 				//assert(index <= 127 && index >= 0, "shade out of range: " ~ to!string(index) ~ " at row: " ~ to!string(row_count) ~ " col: " ~ to!string(col_count) );
 				if(index < 0)
 				{
-					cell.fillColor = _shade_table[ min(abs(index),127) ];
+					cell.fillColor = table[ min(abs(index),127) ];
 					cell.outlineColor = Color.Red;
 					cell.outlineThickness = 1.0f;
 				} else
 				if( index > 127)
 				{
-					cell.fillColor = _shade_table[ $-1 ];
+					cell.fillColor = table[ $-1 ];
 					cell.outlineColor = Color.White;
 					cell.outlineThickness = 1.0f;
 				} else
 				{
-					cell.fillColor = _shade_table[ index ];
+					cell.fillColor = table[ index ];
 					cell.outlineThickness = 0.0f;
 				}
 				input_iter++;

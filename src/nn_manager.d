@@ -31,11 +31,11 @@ class NNManagerBase
 	RecordKeeper _record_keeper;
 	double time_window_scale = 1.0; // changes how long record keeper waits to close records, subclasses can change this.
 	
+	int _epoch_limit = 2000;
 	
-	
-	int _num_input;
+	/*int _num_input;
 	int _num_hidden;
-	int _num_ouput;
+	int _num_ouput;*/
 	
 	
 	this(char[] filename, IActivationFunction actfn)
@@ -59,7 +59,7 @@ class NNManagerBase
 		}
 	}+/
 	
-	abstract void do_init(int num_inputs, int num_hidden_neurons, int num_outputs);
+	abstract void do_init(int num_inputs, int[] num_hidden_neurons_in_layer, int num_outputs);
 	
 	
 	
@@ -119,6 +119,8 @@ class NNManagerBase
 			writeln("training on opponent's records is disabled.");
 			return;
 		}
+		if (opponent is null)
+			return;
 		foreach(record ; opponent._record_keeper._completed_records)
 		{
 			make_training_data_from_opponent_record( record );

@@ -40,23 +40,32 @@ bool saveNetwork(NeuralNetwork nn , char [] path)
 	string dup_path = path.dup;
 	try 
 	{
+		//TODO: std.stream is obsolete.
 		stdstream.File f = new stdstream.File(dup_path, stdstream.FileMode.Out );
-		f.writeLine( /+std.string.+/to!string(nn.input.neurons.length) ~ "\t" ~ /+std.string.+/to!string(nn.hidden[0].neurons.length) ~ "\t" ~ /+std.string.+/to!string(nn.output.neurons.length) ~ "\t" ~ /+std.string.+/to!string(cast(int)nn.output.activationFunction.id() ) );
-
-		foreach ( Neuron n; nn.hidden[0].neurons ) //TODO: support multi hidden layers
+		f.writeString( /+std.string.+/to!string(nn.input.neurons.length) ~ "\t" ~ to!string(nn.hidden.length) ~ "\t");
+		foreach (layer; nn.hidden)
 		{
-			for ( int i = 0 ; i < n.synapses.length;i++ )
-			{
-				f.writeLine(/+std.string.+/to!string( n.synapses[i] ));
-				if(isNaN(n.synapses[i]) && !reported ) {writefln("wieght is %f",n.synapses[i]);  reported = true;} 
-				// write last wieght change
-				f.writeLine(to!string( n.lastWeightChange[i] ));
-			}
+			f.writeString(/+std.string.+/to!string(layer.neurons.length) ~ "\t");
+		}
+		f.writeLine( /+std.string.+/to!string(nn.output.neurons.length) ~ "\t" ~ /+std.string.+/to!string(cast(int)nn.output.activationFunction.id() ) );
 
-			f.writeLine(/+std.string.+/to!string( n.bias ) );
-			if( isNaN(n.bias) && !reported ) {writefln("wieght is %f",n.bias); reported = true;}
-			// write last bias change
-			f.writeLine(to!string( n.lastBiasChange ));
+		foreach (layer ; nn.hidden)
+		{
+			foreach ( Neuron n; layer.neurons ) //TODO: support multi hidden layers
+			{
+				for ( int i = 0 ; i < n.synapses.length;i++ )
+				{
+					f.writeLine(/+std.string.+/to!string( n.synapses[i] ));
+					if(isNaN(n.synapses[i]) && !reported ) {writefln("weight is %f",n.synapses[i]);  reported = true;} 
+					// write last weight change
+					f.writeLine(to!string( n.lastWeightChange[i] ));
+				}
+
+				f.writeLine(/+std.string.+/to!string( n.bias ) );
+				if( isNaN(n.bias) && !reported ) {writefln("weight is %f",n.bias); reported = true;}
+				// write last bias change
+				f.writeLine(to!string( n.lastBiasChange ));
+			}
 		}
 
 
@@ -107,10 +116,18 @@ NeuralNetwork loadNetwork(char [] path )
 	char [] l = f.readLine();
 	char [] [] data = l.split("\t");
 
-	int ni = to!int(data[0]);
-	int nh = to!int(data[1]);
-	int no = to!int(data[2]);
-	int af = to!int(data[3]);
+	int data_iter = 0;
+	
+	int ni = to!int(data[data_iter++]);
+	int num_hidden_layers = to!int(data[data_iter++]);
+	int [] nh = [];
+	foreach (int i; 0..num_hidden_layers)
+	{
+		debug writefln("loading alayer size. %d", num_hidden_layers);
+		nh ~= to!int(data[data_iter++]);
+	}
+	int no = to!int(data[data_iter++]);
+	int af = to!int(data[data_iter++]);
 
 	IActivationFunction afunc;
 
@@ -127,27 +144,35 @@ NeuralNetwork loadNetwork(char [] path )
 	writeln("sure am loading");
 	
 	Layer input = new Layer( ni, 0 );
-	Layer [] hidden = [ new Layer( nh, ni, afunc)  ];
-	Layer output = new Layer( no, nh, afunc ) ;
+	Layer [] hidden = [];
+	hidden ~= new Layer( nh[0], ni, afunc);
+	foreach (num; 1..nh.length)
+	{
+		hidden ~= new Layer( nh[num], nh[num-1], afunc);
+	}
+	Layer output = new Layer( no, nh[$-1], afunc ) ;
 	
 	
 	nn = new NeuralNetwork(input, hidden, output, true);
 
-	foreach ( Neuron n;nn.hidden[0].neurons )
+	foreach (layer ; nn.hidden)
 	{
-		for ( int i = 0 ; i < n.synapses.length;i ++ )
+		foreach ( Neuron n; layer.neurons )
 		{
-			char [] line = f.readLine();
+			for ( int i = 0 ; i < n.synapses.length;i ++ )
+			{
+				char [] line = f.readLine();
 
-			n.synapses[i] = line.to!real();
-			if(isNaN(n.synapses[i]) && !reported ) {writefln("wieght is %f",n.synapses[i]); reported = true;}
-			n.lastWeightChange[i] = to!real( f.readLine());
+				n.synapses[i] = line.to!real();
+				if(isNaN(n.synapses[i]) && !reported ) {writefln("weight is %f",n.synapses[i]); reported = true;}
+				n.lastWeightChange[i] = to!real( f.readLine());
+			}
+
+			n.bias = to!real(f.readLine() );
+			if(isNaN(n.bias) && !reported ) {writefln("bias is %f",n.bias); reported = true; }
+			// read last bias change
+			n.lastBiasChange = to!real(f.readLine() );
 		}
-
-		n.bias = to!real(f.readLine() );
-		if(isNaN(n.bias) && !reported ) {writefln("bias is %f",n.bias); reported = true; }
-		// read last bias change
-		n.lastBiasChange = to!real(f.readLine() );
 	}
 
 

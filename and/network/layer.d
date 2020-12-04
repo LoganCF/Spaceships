@@ -23,7 +23,7 @@ class Layer : ILayer
   Neuron [] neurons; /// Neurons in the layer
   IActivationFunction activationFunction; /// activation function for the layer
 
-  /** Parameters: number of neurons in layer, number of snypases ( this is number of neurons to previous layer ), and activation function */
+  /** Parameters: number of neurons in layer, number of synapses ( this is number of neurons to previous layer ), and activation function */
   this ( int neuronCount, int synapseCount ,IActivationFunction f = null)
   {
     activationFunction = f;

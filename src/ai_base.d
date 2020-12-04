@@ -191,7 +191,7 @@ class BaseAI
 	//TODO: call-throughs to NNM
 	void make_training_data( BaseAI opponent)
 	{
-		_nn_mgr.make_training_data(opponent._nn_mgr);
+		_nn_mgr.make_training_data(opponent!is null ? opponent._nn_mgr : null);
 	}
 	
 	

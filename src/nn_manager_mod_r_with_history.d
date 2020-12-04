@@ -21,7 +21,7 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 	this(char[] filename, IActivationFunction actfn)
 	{
 		super(filename, actfn);
-		
+		_epoch_limit   = 10_000;
 	}
 	
 	
@@ -47,7 +47,7 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 			return;
 		}
 		
-		int epochs = max(inputs.length, 10_000);
+		int epochs = max(inputs.length, _epoch_limit);
 		/+to!int( epoch_factor / inputs.length );
 		if (epochs == 0) epochs = 1=+/;
 		writefln("Training Mod-Reinforcement Network With History, %d epochs, %d records", epochs, output_records.length);
@@ -60,11 +60,11 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 	}
 	
 	
-	override void do_init(int num_inputs, int num_hidden_neurons, int num_outputs)
+	override void do_init(int num_inputs, int[] num_hidden_neurons_in_layer, int num_outputs)
 	{
 		init_hist(_filename, num_inputs);
 		
-		super.do_init(num_inputs, num_hidden_neurons, num_outputs);
+		super.do_init(num_inputs, num_hidden_neurons_in_layer, num_outputs);
 	}
 	
 	override bool load_net()
@@ -99,22 +99,32 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 	{
 		// write completed records to file
 		_record_keeper.write_records_to_history(_hist);
+		writeln("records written");
 		// don't write opponent records to file, this could cause weird duplication errors
 		/+opponent._record_keeper.write_records_to_history(_hist);+/
 		// read from file
 		/+_record_keeper.fill_to_n_records_from_history(_hist, _record_limit);+/
+		writeln("reading records from history");
 		CompletedRecord[] records_from_history = [];
-		uint num_records_to_load = _record_limit - _record_keeper._completed_records.length 
-								        - opponent._record_keeper._completed_records.length;
+		int num_records_to_load = _record_limit - _record_keeper._completed_records.length;
+		if(opponent !is null && g_train_on_opponent_records)
+		{
+			num_records_to_load -= opponent._record_keeper._completed_records.length;
+		}
+		num_records_to_load = max(num_records_to_load, 0); // trying to load values near MAX_INT when this went negative didn't work so great.
 		_hist.fill_array_to_n_records( records_from_history, num_records_to_load );
+		
+		writeln("making training data from this game");
 		
 		super.make_training_data(opponent);
 		
+		writeln("making training data from history");
 		foreach(record ; records_from_history)
 		{
 			make_training_data_internal(record);
 		}
 		
+		//_record_keeper.garbage_collect();
 		_hist.close();
 		
 	}
@@ -122,7 +132,7 @@ class NNManagerModReinforcementWithHistory : NNManagerModReinforcement
 	override void adjust_NN_params()
 	{
 		super.adjust_NN_params();
-		_backprop.learningRate = 0.05;
+		_backprop.learningRate = 0.01;
 		_backprop.errorThreshold = 0.035; //determined experimentally to be smaller than the 0.05 for regular mod_r, but not take too long and be boring
 	}
 	

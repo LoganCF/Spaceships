@@ -21,16 +21,21 @@ class NNManagerModReinforcement : NNManagerBase
 	this(char[] filename, IActivationFunction actfn)
 	{
 		super(filename, actfn);
+		_epoch_limit   = 15_000;
 	}
 	
-	override void do_init(int num_inputs, int num_hidden_neurons, int num_outputs)
+	override void do_init(int num_inputs, int[] num_hidden_neurons_in_layer, int num_outputs)
 	{
 		//make layers and NN
 		IActivationFunction act_fn        = _activation_function;
-		IActivationFunction output_act_fn = new TanhActivationFunction();
+		IActivationFunction output_act_fn = _activation_function;  //new TanhActivationFunction();
 		Layer input  = new Layer(num_inputs,0);
-		Layer[] hidden = [ new Layer(num_hidden_neurons, num_inputs, act_fn) ];
-		Layer output = new Layer(num_outputs, num_hidden_neurons, output_act_fn);
+		Layer[] hidden = [ new Layer(num_hidden_neurons_in_layer[0], num_inputs, act_fn) ];
+		foreach (int i; 1..num_hidden_neurons_in_layer.length)
+		{
+			hidden ~= new Layer(num_hidden_neurons_in_layer[i], num_hidden_neurons_in_layer[i-1], act_fn);
+		}
+		Layer output = new Layer(num_outputs, num_hidden_neurons_in_layer[$-1], output_act_fn);
 		
 		_neural_net = new NeuralNetwork(input, hidden, output);
 		
@@ -92,7 +97,7 @@ class NNManagerModReinforcement : NNManagerBase
 			return;
 		}
 		
-		int epochs = max(inputs.length, 10_000);
+		int epochs = max(inputs.length, _epoch_limit);
 		/+to!int( epoch_factor / inputs.length );
 		if (epochs == 0) epochs = 1=+/;
 		writefln("Training Mod-Reinforcement Network, %d epochs, %d records", epochs, output_records.length);
@@ -121,7 +126,8 @@ class NNManagerModReinforcement : NNManagerBase
 	override void adjust_NN_params()
 	{
 		//_backprop.learningRate *= 2.0; //TODO: is this called at a reasonable time? //TODO: make this bigger?
-		_backprop.errorThreshold = .005; // we can actually expect more accuracy from the non-history version because the record-sets are smaller.
+		_backprop.learningRate = 0.01;//TODO: adjust based on input function, ReLUs need a much lower value
+		_backprop.errorThreshold = .1; // we can actually expect more accuracy from the non-history version because the record-sets are smaller. (trying less accuracy right now to avoid overfitting).
 	} 
 	
 	

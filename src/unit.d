@@ -133,9 +133,8 @@ class Unit  : Dot
 		if(_health_current < 0.0 && !_is_dead)
 		{
 			_is_dead = true; // kaboom!
-			_team._unit_lost_counts[_type]++;
-			_team._total_units_by_type[_type]--;
-			_team._total_army_value -= get_unit_build_cost(_type);
+			_team.notify_unit_destroyed(_type);
+			
 			if(_destination_id != -1)
 			{
 				_team._unit_destination_counts[_destination_id][_type]--;
@@ -295,6 +294,8 @@ class Unit  : Dot
 	// Dot (steering object) draws the shape. it's called separately so that lasers and units are on separate layers
 	override void draw(RenderTarget renderTarget, RenderStates renderStates) 
 	{
+		if (is_dead)
+			return;
 		super.draw(renderTarget, renderStates);
 	}
 	

@@ -134,7 +134,7 @@ void init_by_array(uint[] init_key, bool pAddEntropy = false)
 uint genrand_int32(bool pAddEntropy = false)
 {
     uint y;
-    static uint mag01[2] =[0, MATRIX_A];
+    static uint[2] mag01 =[0, MATRIX_A];
     /* mag01[x] = x * MATRIX_A  for x=0,1 */
 
     if (mti >= mt.length) { /* fill the entire mt[] at one time */

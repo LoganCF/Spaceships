@@ -22,17 +22,22 @@ class NNManagerClassifier : NNManagerBase
 	this(char[] filename, IActivationFunction actfn)
 	{
 		super(filename, actfn);
+		_epoch_limit   = 5000;
 	}
 	
 	
 	
-	override void do_init(int num_inputs, int num_hidden_neurons, int num_outputs)
+	override void do_init(int num_inputs, int[] num_hidden_neurons_in_layer, int num_outputs)
 	{
 		//make layers and NN
 		IActivationFunction act_fn =  _activation_function; //new SigmoidActivationFunction;
 		Layer input  = new Layer(num_inputs,0);
-		Layer[] hidden = [ new Layer(num_hidden_neurons, num_inputs, act_fn) ];
-		Layer output = new Layer(num_outputs, num_hidden_neurons, act_fn);
+		Layer[] hidden = [ new Layer(num_hidden_neurons_in_layer[0], num_inputs, act_fn) ];
+		foreach (int i; 1..num_hidden_neurons_in_layer.length)
+		{
+			hidden ~= new Layer(num_hidden_neurons_in_layer[i], num_hidden_neurons_in_layer[i-1], act_fn);
+		}
+		Layer output = new Layer(num_outputs, num_hidden_neurons_in_layer[$-1], act_fn);
 		
 		_neural_net = new NeuralNetwork(input, hidden, output);
 		
@@ -108,7 +113,7 @@ class NNManagerClassifier : NNManagerBase
 			return;
 		}
 		
-		int epochs = min(inputs.length*20, 5000);
+		int epochs = min(inputs.length*20, _epoch_limit);
 		writefln("Training, %d epochs, %d records", epochs, training_outputs.length);
 		
 		_backprop.setProgressCallback(&callback, 500 );

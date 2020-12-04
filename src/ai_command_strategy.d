@@ -70,7 +70,7 @@ class StrategyCommandAI : CommandAI
 		int num_inputs = NUM_COMMAND_AI_INPUTS;
 			
 		int num_outputs = g_strategies.length;
-		int num_hidden_neurons = 144;
+		int[] num_hidden_neurons = [144, 48];
 		
 		_nn_mgr.do_init(num_inputs, num_hidden_neurons, num_outputs);	
 		

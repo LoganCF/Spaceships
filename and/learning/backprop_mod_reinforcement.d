@@ -29,6 +29,8 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 	{
 		super(n, c);
 	}
+	
+	static const real error_clamp = 5.0;
 
 	void backPropogate(real [] inputs, real expected, int output_neuron_num)
 	{
@@ -40,6 +42,13 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			{
 				//error = derivative of SSE * derivative of output activation function 
 				no.error = ( expected - no.value ) * neuralNetwork.output.activationFunction.fDerivative(no.value );
+				if (isNaN(no.error) )
+				{
+					writefln("actual: %f, predicted: %f, deriv: %f, epoch: %d",expected, no.value, neuralNetwork.output.activationFunction.fDerivative(no.value ), actualEpochs);
+				}
+				// head off some ReLU nonsense
+				if (no.error > error_clamp)  no.error = error_clamp;
+				if (no.error < -error_clamp) no.error = -error_clamp;
 				//debug
 				/+
 				if(neuralNetwork.output.activationFunction.fDerivative(no.value ) < 0.01)
@@ -48,7 +57,7 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				}
 				+/
 			} else {
-				no.error = 0;
+				no.error = 0.0;
 			}
 			/+++/assert(!isNaN(no.error));
 		}
@@ -73,7 +82,13 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				{
 			 
 					nh.error += nhInner.error * nhInner.synapses[currentSynapse];
+					if (isNaN(nh.error) )
+					{
+						writefln("error is NaN.  next layer error: %s, synapse val: %s", to!string(nhInner.error), to!string(nhInner.synapses[currentSynapse]));
+					}
 					/+++/assert(!isNaN(nh.error));
+					if (nh.error > error_clamp)  nh.error = error_clamp;
+					if (nh.error < -error_clamp) nh.error = -error_clamp;
 				}
 
 				nh.error *= operatingLayer.activationFunction.fDerivative(nh.value );
@@ -109,6 +124,7 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 		real [] problem_expected = [];
 		int [] problem_neuron_outputs = [];
 		
+		actualEpochs = 0;
 
 		int patternCount = 0;
 		real error = 0;
@@ -116,9 +132,12 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 		
 		int last_problem_count = 0;
 		real last_error = 0.0;
+		real largest_error = 0.0;
+		real last_largest_error = 0.0;
 		
 		real expected = 0; //experimental value
 		real actual = 0;  // what we calculated from the NN
+		bool write_progress = true;
 		
 		
 		while ( 1 )
@@ -143,6 +162,8 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			actual = neuralNetwork.output.neurons[output_neuron_numbers[patternCount]].value;
 			error =  expected - actual;
 			total_abs_error += abs(error);
+			if (abs(error) > largest_error)
+				largest_error = abs(error);
 			
 			if(train_on_problem_inputs && abs(error) > errorThreshold)
 			{	
@@ -157,9 +178,9 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				writef("Iterations [ %d ] Error [ ",actualEpochs  );
 				for ( int i = 0 ; i < neuralNetwork.output.neurons.length; i++ )
 				{
-					writef(" %f ",neuralNetwork.output.neurons[i].error );
+					writef(" %s ",to!string(neuralNetwork.output.neurons[i].error) );
 				}
-				writefln(" ] Cost [ %f ]",error);
+				writefln(" ] Cost [ %s ]",error);
 			}
 				 
 			if ( patternCount >= inputs.length ) 
@@ -168,8 +189,15 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				//writef("Learning rate: %f",learningRate);
 				real avg_err = total_abs_error / patternCount;
 				if(last_error == 0.0) last_error = avg_err;
-				writefln("Average Error: % 7f (%+7f)", avg_err, avg_err - last_error);
+				if(last_largest_error == 0.0) last_largest_error = largest_error;
+				if(write_progress)
+				{
+					writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
+					write_progress = false;
+					}
 				last_error = avg_err;
+				last_largest_error = largest_error;
+				largest_error = 0.0;
 				// if average error is small enough, we're done!
 				if(total_abs_error / patternCount <= this.errorThreshold)
 				{
@@ -193,10 +221,11 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 			if ( actualEpochs % callBackEpochs == 0 ) 
 			{
 				//for(int i = 0; i < depth; ++i) write(" ");
-				if ( progressCallback !is null )
+				/+if ( progressCallback !is null )
 				{
 					progressCallback( actualEpochs, error, expected, actual );
-				}
+				}+/
+				write_progress = true;
 			}
 
 			if ( ++actualEpochs >= epochs ) break;

@@ -43,7 +43,7 @@ class CommandAI : BaseAI
 		int num_inputs = NUM_COMMAND_AI_INPUTS;
 			
 		int num_outputs = NUM_CAPTURE_POINTS;
-		int num_hidden_neurons = 144; // because I wanted it to be.
+		int[] num_hidden_neurons = [144, 48];
 		
 		_nn_mgr.do_init(num_inputs, num_hidden_neurons, num_outputs);	
 		
@@ -83,6 +83,7 @@ class CommandAI : BaseAI
 	
 	UnitType get_type_from_inputs(real [] inputs)
 	{
+		writeln("don't use get_type_from_inputs!");
 		int offset = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 + NUM_CAPTURE_POINTS * 2 + 3 + 2 + NUM_CAPTURE_POINTS * 2; //TODO: this is crazy
 		int i;
 		for (i = 0 ; i < NUM_UNIT_TYPES; ++i)

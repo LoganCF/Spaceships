@@ -7,6 +7,7 @@ import std.math;
 import std.container.dlist;
 import std.container.util;
 import std.algorithm.comparison;	
+import std.stdio;
 
 import core.memory;
 
@@ -70,6 +71,7 @@ class CompletedRecord
 		strategy = strat;
 		endgame = is_end;
 		num_duplicates = dups;
+		//write("r");
 	}
 	
 	this(PendingRecord pending, int territory_diff_now, real score_now, bool is_end = false)
@@ -189,7 +191,6 @@ class RecordKeeper
 	
 	// create a pending record, we add it to closed records when the time-window has elasped.
 	// this function is called at the time an order is given.
-	//TODO: this needs to interact with strategy
 	void record_decision(real[] inputs, int num_duplicates, int choice, int strategy)
 	{
 		_pending_record_queue.insert( PendingRecord(_last_territory_diff, _last_timestamp, inputs, num_duplicates, choice, strategy) );
@@ -204,7 +205,9 @@ class RecordKeeper
 		while(!_pending_record_queue.empty && now - _pending_record_queue.front.timestamp >= _time_window)
 		{
 			close_record(_pending_record_queue.front, false);
+			//writefln("record closed: timestamp: %f, now: %f, now - timestamp: %f", _pending_record_queue.front.timestamp, now, now - _pending_record_queue.front.timestamp);
 			_pending_record_queue.removeFront();
+
 		}
 	}
 	
@@ -252,6 +255,13 @@ class RecordKeeper
 			+/
 			hist.add_record_to_file(record);
 		}
+	}
+	
+	void garbage_collect()
+	{
+		_completed_records = null;
+		GC.collect();
+		writeln("Trash out!");
 	}
 	
 	

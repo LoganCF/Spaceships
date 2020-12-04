@@ -39,8 +39,12 @@ import and.api;
 
 class ReinforcementLearningTeam : TeamObj
 {
+
 	Text[] _labels;
 	Text   _score_disp;
+	Text[] _score_breakdown;
+	static string[] s_score_prefixes = ["CPs:  ", "VPs:  ", "Army: ", "Econ: "];
+	
 	real[] _last_output; // last NN output for drawing labels
 	bool _labels_inited = false;
 	
@@ -49,6 +53,7 @@ class ReinforcementLearningTeam : TeamObj
 	{
 		super( in_id, in_color, in_name, in_train, in_build_act_fn, in_command_act_fn );
 		_labels.length = NUM_CAPTURE_POINTS;
+		_score_breakdown.length = 4;
 		
 	}
 	
@@ -108,11 +113,21 @@ class ReinforcementLearningTeam : TeamObj
 		position_labels();
 		
 		_score_disp = new Text();
-		Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(50.0, 0.0);
-		_score_disp.position = Vector2!float(25, 60) + offset; 
+		Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(150.0, 0.0);
+		_score_disp.position = Vector2!float(5, 50) + offset; 
 		_score_disp.setFont(ensure_font()); 
 		_score_disp.setCharacterSize(14);
 		_score_disp.setColor(_color);
+		
+		foreach( i, ref label; _score_breakdown)
+		{
+			_score_breakdown[i] = new Text();
+			//writeln(i, _points.length);
+			label.setFont(ensure_font()); 
+			label.setCharacterSize(12);
+			label.setColor(_color);
+			label.position = _score_disp.position + Vector2f(5.0f, (i+1)*15.0f);
+		}
 		
 		_labels_inited = true;
 	}
@@ -152,8 +167,14 @@ class ReinforcementLearningTeam : TeamObj
 			}
 		}
 		
-		_score_disp.setString( format("%+#.3f",_command_ai._record_keeper._last_score) );
+		_score_disp.setString( format("%+#.3f", _score_data.score));//_command_ai._record_keeper._last_score) );
 		renderTarget.draw(_score_disp);
+		foreach(int i, ref label; _score_breakdown)
+		{
+			label.setString( format("%s%+#.3f", s_score_prefixes[i], _score_data[i] ));
+			renderTarget.draw(label);
+		}
+		
 		
 		super.draw(renderTarget, renderStates);
 	}

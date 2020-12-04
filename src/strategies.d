@@ -92,7 +92,7 @@ const Strategy strat_guard_most_threatened = new Strategy("GThr", [
 //strat_contest_caps
 const Strategy strat_contest_caps = new Strategy("StCp", [
 	new Behavior(&qual_is_friendly_or_neutral_and_has_enemies, &prop_distance_to_unit, false),
-	new Behavior(&qual_is_neutral, &prop_threat_diff, false, &prop_distance_to_unit, false),
+	new Behavior(&qual_is_neutral, &prop_threat_diff, false, &prop_distance_to_unit, false), //TODO: once I've added epsilons, maybe swap that around.
 	to!(const Evaluable)(strat_guard_most_threatened)
 ]);
 
@@ -109,7 +109,7 @@ const Strategy strat_cover_friendly_territory = new Strategy("Sprd", [
 
 //strat_expand_safe
 const Strategy strat_expand_safe = new Strategy("CpEx", [
-	new Behavior(&qual_not_friendly_and_not_threatened, &prop_same_team_threat, false, &prop_distance_to_unit, false),
+	new Behavior(&qual_not_friendly_and_not_threatened, &prop_same_team_units_going_to, false, &prop_distance_to_unit, false),
 	to!(const Evaluable)(strat_capture_least_guarded)
 ]);
 
@@ -297,6 +297,19 @@ double prop_number_of_this_friendly_unit_type (StateInfo gamestate, int i)
 	UnitType type = gamestate._unit._type;
 	return gamestate._team._unit_destination_counts[i][type];
 }
+
+
+//prop_same_team_units_going_to
+double prop_same_team_units_going_to (StateInfo gamestate, int i)
+{
+	int sum = 0;
+	for( UnitType iter = UnitType.min; iter < UnitType.max; ++iter )
+	{
+		sum += gamestate._team._unit_destination_counts[i][iter];
+	}
+	return sum;
+}
+
 
 //prop_same_team_threat
 double prop_same_team_threat (StateInfo gamestate, int i)

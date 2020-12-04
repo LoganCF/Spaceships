@@ -274,81 +274,12 @@ class PlayerTeam : TeamObj
 		_window = w;
 	}
 	
-	
-	//TODO: this is same as base_ai.handle_endgame with some strings different, abstract out the similar stuff
-	/+override void handle_endgame(bool won_game)
-	{
-		/+_build_ai  .load_or_initialize_net();
-		_command_ai.load_or_initialize_net();+/
-		
-		_game_over = true;
-		if(won_game)
-		{
-			writefln("-----------%s Won!   %d orders, %d builds----------", _player_name , _num_orders_given, _num_builds);
-			writeln("Training winner's build AI:");
-			_build_ai.train_net(true);
-			writeln("Training winner's command AI:");
-			_command_ai.train_net(true);
-			
-			writeln("Training loser's build AI to emulate winner:");
-			_opponent._build_ai.train_net_to_emulate(this._build_ai); 
-			writeln("Training loser's command AI to emulate winner");
-			_opponent._command_ai.train_net_to_emulate(this._command_ai);
-	  
-			_opponent._build_ai  .save_net();
-			_opponent._command_ai.save_net();
-		} else {
-			writefln("-----------%s Lost!  %d orders, %d builds-----------", _player_name, _num_orders_given, _num_builds);
-			writeln("Training loser's build AI:");
-			_build_ai.train_net(false);
-			writeln("Training loser's command AI:");
-			_command_ai.train_net(false);
-		}
-		
-		_build_ai  .save_net();
-		_command_ai.save_net();
-		
-		// TODO: reset game state (from main?).
-	}+/
 }
 
 
 
 UnitType get_unit_type_from_keypress(/+Keyboard.Key pressed+/ )
 {
-	/+switch( pressed )
-	{
-		with( Keyboard.Key )
-		{
-			case Q:
-				return UnitType.Interceptor;
-			case W:
-				return UnitType.AssaultFighter;
-			case E:
-				return UnitType.Bomber;
-				
-			case A:
-				return UnitType.Corvette;
-			case S:
-				return UnitType.Frigate;
-			case D:
-				return UnitType.Destroyer;
-			case F:
-				return UnitType.Miner;
-				
-			case Z:
-				return UnitType.Cruiser;
-			case X:
-				return UnitType.BattleCruiser;
-			case C:
-				return UnitType.Battleship;
-			case V:
-				return UnitType.Mothership;
-				
-			default:
-				break;
-		}
-	}+/
 	
 	with( Keyboard.Key )
 	{

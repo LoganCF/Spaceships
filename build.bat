@@ -1,6 +1,7 @@
 
 setlocal
 set dmd=X:\"Program Files (x86)"\Dlang\D_programs\Dcompiler\dmd2\windows\bin\dmd
+rem set dmd=X:\"Program Files (x86)"\Dlang\D_programs\Dcompiler\dmd.2.094.2.windows\dmd2\windows\bin\dmd
 
 
 cd and

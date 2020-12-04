@@ -21,6 +21,6 @@ class Neuron
 
   real error = 0.0; /// current error value
   real value = 0.0; /// actual value
-  real lastWeightChange[]; /// for momentum
+  real [] lastWeightChange; /// for momentum
   real lastBiasChange = 0.0; /// for momentum
 }

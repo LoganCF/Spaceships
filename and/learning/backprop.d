@@ -17,6 +17,10 @@ private import and.platform;
 private import and.util;
 private import and.cost.model.icostfunction;
 
+import std.parallelism;
+
+
+
 
 /**
    The learning function is the main worker class of the library.  It trains the network and computes the output.
@@ -57,6 +61,7 @@ class BackPropagation : ILearningFunction
 
 
   }
+  
 
   /**
      Parameters: an array of inputs to the network
@@ -66,27 +71,91 @@ class BackPropagation : ILearningFunction
 void feedForward ( real [] inputs) {
 
     
-
+	assert (inputs.length == neuralNetwork.input.neurons.length);
 	real sum = 0;
 	int lastHiddenLayer = neuralNetwork.hidden.length - 1;
-
-	foreach ( int currentLayer, Layer l; neuralNetwork.hidden )
+	
+	foreach ( int currentNeuron, Neuron nh; neuralNetwork.hidden[0].neurons)
 	{
 
+		sum = 0;
+
+		foreach ( int i , real inp;inputs )
+		{
+			debug real sum_before = sum;	
+
+			//TODO: would this be faster with parralel reduce?
+			sum += inp * nh.synapses[i];
+			
+			debug {
+				if( isNaN(sum) )
+				{
+					writefln("RAW INPUT\n%(%a %)\n", inputs);
+					writefln("INPUT\n%(%f %)\n", inputs);
+					writefln("%a, %a", inp, nh.synapses[i]);
+					writefln("neuron input is NaN. Layer = 0, neuron#: %d, input value = %f, synapse = %f, synapse#: %d, value*synapse: %f, sum before = %f"
+					, currentNeuron, inp, nh.synapses[i], i, inp * nh.synapses[i], sum_before);
+					assert(false);
+				}
+			}
+		}
+
+		sum += nh.bias;
+		nh.value = neuralNetwork.hidden[0].activationFunction.f(sum);
+		debug {
+			if( isNaN(nh.value) )
+			{
+				writeln("neuron output is NaN. Layer = 0" ~ ", neuron#: " ~to!string(currentNeuron));
+			}
+		}
+
+	}
+		
+	Layer prev_layer = neuralNetwork.hidden[0];
+
+	foreach ( int currentLayer, Layer l; neuralNetwork.hidden[1..$] )
+	{
+		
 		foreach ( int currentNeuron, /+inout+/ Neuron nh; l.neurons )
 		{
 
 			sum = 0;
 
-			foreach ( int i , real inp;inputs )
+			foreach ( int i , Neuron prev_neuron; prev_layer.neurons )
 			{
-				sum += inp * nh.synapses[i];
+				debug real sum_before = sum;
+				//writefln("neurons in prev_layer: %d, num synapses: %d, synapse#: %d", prev_layer.neurons.length, nh.synapses.length, i);
+				
+				debug 
+				{
+					if( isNaN(prev_neuron.value)) writefln("prev neuron is nan: %a", prev_neuron.value);
+					if( isNaN(nh.synapses[i])) writefln("synapse is nan: %a", nh.synapses[i]);
+				}
+				sum += prev_neuron.value * nh.synapses[i];
+				
+				debug {
+					if( isNaN(sum) )
+					{
+						writefln("%(%a %)", inputs);
+						writefln("%a, %a", prev_neuron.value, nh.synapses[i]);
+						writefln("neuron input is NaN. Layer = %d, neuron#: %d, input value = %f, synapse = %f, synapse#: %d, value*synapse: %f, sum before = %f"
+						, currentLayer, currentNeuron, prev_neuron.value, nh.synapses[i], i, prev_neuron.value * nh.synapses[i], sum_before);
+						assert(false);
+					}
+				}
 			}
 
 			sum += nh.bias;
 			nh.value = l.activationFunction.f(sum);
+			debug {
+				if( isNaN(nh.value) )
+				{
+					writeln("neuron output is NaN. Layer = " ~ to!string(currentLayer) ~", neuron#: " ~to!string(currentNeuron));
+				}
+			}
 
 		}
+		prev_layer = l;
 
 	}
 
@@ -112,10 +181,108 @@ void feedForward ( real [] inputs) {
 		}*/
 	}
 
+ }
+   
+   
+   
+   
+   /+ WIP
+   void feedForwardParralel ( real [] inputs) {
+
+    
+	assert (inputs.length == neuralNetwork.input.neurons.length);
+	real sum = 0;
+	int lastHiddenLayer = neuralNetwork.hidden.length - 1;
+	
+	foreach ( int currentNeuron, Neuron nh; neuralNetwork.hidden[0].neurons)
+	{
+
+		sum = taskPool.reduce!"a+b"(0.0, zip(inputs, nh.synapses).map!"a[0] * a[1]")
+		
+
+		sum += nh.bias;
+		nh.value = neuralNetwork.hidden[0].activationFunction.f(sum);
+		debug {
+			if( isNaN(nh.value) )
+			{
+				writeln("neuron output is NaN. Layer = 0" ~ ", neuron#: " ~to!string(currentNeuron));
+			}
+		}
+
+	}
+	/////////////// vvv not changed yet vvv
+		
+	Layer prev_layer = neuralNetwork.hidden[0];
+
+	foreach ( int currentLayer, Layer l; neuralNetwork.hidden[1..$] )
+	{
+		
+		foreach ( int currentNeuron, /+inout+/ Neuron nh; l.neurons )
+		{
+
+			sum = 0;
+
+			foreach ( int i , Neuron prev_neuron; prev_layer.neurons )
+			{
+				debug real sum_before = sum;
+				//writefln("neurons in prev_layer: %d, num synapses: %d, synapse#: %d", prev_layer.neurons.length, nh.synapses.length, i);
+				
+				debug 
+				{
+					if( isNaN(prev_neuron.value)) writefln("prev neuron is nan: %a", prev_neuron.value);
+					if( isNaN(nh.synapses[i])) writefln("synapse is nan: %a", nh.synapses[i]);
+				}
+				sum += prev_neuron.value * nh.synapses[i];
+				
+				debug {
+					if( isNaN(sum) )
+					{
+						writefln("%(%a %)", inputs);
+						writefln("%a, %a", prev_neuron.value, nh.synapses[i]);
+						writefln("neuron input is NaN. Layer = %d, neuron#: %d, input value = %f, synapse = %f, synapse#: %d, value*synapse: %f, sum before = %f"
+						, currentLayer, currentNeuron, prev_neuron.value, nh.synapses[i], i, prev_neuron.value * nh.synapses[i], sum_before);
+						assert(false);
+					}
+				}
+			}
+
+			sum += nh.bias;
+			nh.value = l.activationFunction.f(sum);
+			debug {
+				if( isNaN(nh.value) )
+				{
+					writeln("neuron output is NaN. Layer = " ~ to!string(currentLayer) ~", neuron#: " ~to!string(currentNeuron));
+				}
+			}
+
+		}
+		prev_layer = l;
+
+	}
+
+	foreach ( int currentNeuron, /+inout+/ Neuron no;neuralNetwork.output.neurons )
+	{
+
+		sum = 0;
 
 
+		for ( int i = 0 ; i < no.synapses.length;i++ )
+		{
+			sum += neuralNetwork.hidden[lastHiddenLayer].neurons[i].value * no.synapses[i];
 
-   }
+		}
+
+		sum += no.bias;
+
+		no.value = neuralNetwork.output.activationFunction.f(sum);
+	
+		/*if(no.value >1.0)//debug
+		{
+			write("double wtf all across the sky.");
+		}*/
+	}
+
+}+/
 
   /**
      Parameters: the inputs to the network
@@ -141,9 +308,9 @@ void feedForward ( real [] inputs) {
 			foreach ( int i , /+inout+/ Neuron innerNeuron;innerLayer.neurons )
 			{
 				real value = ( learningRate * outerNeuron.error * innerNeuron.value );
-				/+++/assert(!isNaN(value));
-				/+++/assert(!isNaN(outerNeuron.lastWeightChange[i]));
-				/+++/assert(!isNaN(momentum));
+				/+++/debug assert(!isNaN(value));
+				/+++/debug assert(!isNaN(outerNeuron.lastWeightChange[i]));
+				/+++/debug assert(!isNaN(momentum));
 				value += momentum * outerNeuron.lastWeightChange[i];
 				/+++/assert(!isNaN(value));
 				
@@ -168,11 +335,11 @@ void feedForward ( real [] inputs) {
 			foreach ( int i , real input;inputs )
 			{
 				real value = ( learningRate * nh.error * input );
-				/+++/assert(!isNaN(nh.error));
-				/+++/assert(!isNaN(input));
-				/+++/assert(!isNaN(value));
+				/+++/debug assert(!isNaN(nh.error));
+				/+++/debug assert(!isNaN(input));
+				/+++/debug assert(!isNaN(value));
 				value += momentum * nh.lastWeightChange[i];
-				/+++/assert(!isNaN(nh.lastWeightChange[i]));
+				/+++/debug assert(!isNaN(nh.lastWeightChange[i]));
 				/+++/assert(!isNaN(value));
 
 				nh.lastWeightChange[i] = value;
@@ -268,6 +435,10 @@ void feedForward ( real [] inputs) {
 		real error = 0;
 		real total_abs_error = 0; /+++/
 		real last_error = 0.0; /+++/
+		real largest_error = 0.0; /+++/
+		real last_largest_error = 0.0; /+++/
+		
+		actualEpochs = 0;
 		
 		while ( 1 )
 		{
@@ -284,6 +455,8 @@ void feedForward ( real [] inputs) {
 			}
 			error = costFunction.f(expectedOutputs[patternCount],actual );
 			/+++/total_abs_error += abs(error);
+			/+++/if (abs(error) > largest_error)
+				/+++/largest_error = abs(error);
 			/+++/assert(!isNaN(error));
 			
 			
@@ -314,8 +487,11 @@ void feedForward ( real [] inputs) {
 			{
 				real avg_err = total_abs_error / patternCount;
 				if(last_error == 0.0) last_error = avg_err;
-				writefln("Average Error: % 7f (%+7f)", avg_err, avg_err - last_error);
+				if(last_largest_error == 0.0) last_largest_error = largest_error;
+				writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
 				last_error = avg_err;
+				last_largest_error = largest_error;
+				largest_error = 0.0;
 				// if average error is small enough, we're done!
 				if(total_abs_error / patternCount <= this.errorThreshold)
 				{

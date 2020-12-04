@@ -3,6 +3,9 @@ module record_history;
 import std.stdio;
 import std.conv;
 import std.file;
+import core.stdc.errno;
+import std.exception;
+import std.stdio;
 
 import record_keeper;
 
@@ -44,6 +47,12 @@ class RecordHistory
 		enter_filemode(Filemode.closed);
 	}+/
 	
+	
+	~this()
+	{
+		writefln("deleting RecordHistory object for %s", _filename);
+	}
+	
 	void close()
 	{
 		enter_filemode(Filemode.closed);
@@ -51,40 +60,67 @@ class RecordHistory
 	
 	void enter_filemode(Filemode mode)
 	{
-		if( mode != _mode)
-		{	
-			leave_filemode();
-		
-			_mode = mode;
-			//setup new mode
-			final switch(mode)
+		try{
+			if( mode != _mode)
+			{	
+				leave_filemode();
+			
+				_mode = mode;
+				//setup new mode
+				final switch(mode)
+				{
+				case Filemode.closed:
+					//close file
+					writefln("closing %s", _filename);
+					assert (_file.isOpen());
+					if (_file.error() != 0)
+						writefln("file.error = %d",_file.error());
+					_file.flush();
+					_file.sync(); // flush OS buffers
+					if (_file.error() != 0)
+						writefln("file.error = %d (after flush,sync)",_file.error());
+					_file.close();
+					break;
+				case Filemode.read:
+					//_file.open(to!string(_filename),"a+b");
+					//grab current_record and num_records (first two vars in the file)
+					writefln("reading %s", _filename);
+					_file.seek(0,SEEK_SET);
+					int[2] input_2_ints;
+					_file.rawRead(input_2_ints);
+					_num_records = input_2_ints[0];
+					_current_record_index = input_2_ints[1];
+					//fseek(sizeof(int)*2 + _record_size*_current_record_index);
+					_file.seek(int.sizeof*2 + _record_size*_current_record_index, SEEK_SET);
+					break;
+				case Filemode.write:
+					
+					// grab num_records
+					_file.seek(0,SEEK_SET);
+					int[1] input_int;
+					_file.rawRead(input_int);
+					_num_records = input_int[0];
+					// fseek end
+					_file.seek(0,SEEK_END);
+					break;
+				}
+			}
+		}
+		catch (ErrnoException ec)
+		{
+			switch(ec.errno)
 			{
-			case Filemode.closed:
-				//close file
-				_file.close();
+			case EPERM: case EACCES:
+				writeln("file access denied");
 				break;
-			case Filemode.read:
-				//_file.open(to!string(_filename),"a+b");
-				//grab current_record and num_records (first two vars in the file)
-				_file.seek(0,SEEK_SET);
-				int[2] input_2_ints;
-				_file.rawRead(input_2_ints);
-				_num_records = input_2_ints[0];
-				_current_record_index = input_2_ints[1];
-				//fseek(sizeof(int)*2 + _record_size*_current_record_index);
-				_file.seek(int.sizeof*2 + _record_size*_current_record_index, SEEK_SET);
+			case ENOENT:
+				writeln("file does not exist");
 				break;
-			case Filemode.write:
-				
-				// grab num_records
-				_file.seek(0,SEEK_SET);
-				int[1] input_int;
-				_file.rawRead(input_int);
-				_num_records = input_int[0];
-				// fseek end
-				_file.seek(0,SEEK_END);
+			default: 
+				writefln("Errno is %d", errno);
 				break;
 			}
+			throw ec;
 		}
 	}
 	
@@ -122,6 +158,13 @@ class RecordHistory
 		}
 	}
 	
+	void set_read_from_start()
+	{
+		enter_filemode(Filemode.read);
+		_current_record_index = 0;
+		_file.seek(int.sizeof*2 + _record_size*_current_record_index, SEEK_SET);
+	}
+	
 	void add_record_to_file(CompletedRecord recd)
 	{
 		enter_filemode(Filemode.write);
@@ -143,7 +186,7 @@ class RecordHistory
 		//writefln("Pos is: %d", _file.tell());
 		
 		
-		//TODO: avoid this copy.
+		//TODO: avoid this copy. (not a copy?)
 		CompletedRecord retval = CompletedRecord.read_from_binary(_file, _num_inputs);
 		
 		//debug
@@ -156,16 +199,21 @@ class RecordHistory
 			_file.seek(int.sizeof*2);
 		}
 		
-		return retval; //TODO: avoid this copy, too.
+		return retval; //TODO: avoid this copy, too. (also not a copy?)
 	}
 	
 	
 	void fill_array_to_n_records(ref CompletedRecord[] records, uint n)
 	{
+		writefln("reserving space for %d records", n);
+		records.reserve(n);
+		writeln("loading records");
 		while(records.length < n)
 		{
 			records ~= read_record_from_file();
+			//writef("%s ", records.length);
 		}
+		writeln("all records read.");
 	}
 	
 	

@@ -40,8 +40,8 @@ class FactoryUnit : Unit
 		in_team, in_type, in_health_max, in_armor_type, in_range, in_rof, in_damage, in_dmg_type, in_laser_dur, in_player_controlled); // gross
 		
 		_team._num_factories++;
-		_current_build = _team.get_build_order(this);
-		_resources_until_build = get_unit_build_cost( _current_build );
+		_current_build = UnitType.None;//_team.get_build_order(this);
+		_resources_until_build = 0.0;//get_unit_build_cost( _current_build );
 	}
 	
 	override void take_damage(double in_damage, DamageType dmg_type)
@@ -57,8 +57,15 @@ class FactoryUnit : Unit
 	
 	Unit give_resources(double res)
 	{
-		if(_is_dead || _current_build == UnitType.None) 
+		if(_is_dead) 
 			return null;
+			
+		if(_current_build == UnitType.None)
+		{
+			_current_build = determine_next_build();
+			_resources_until_build += get_unit_build_cost( _current_build ); 
+			return null;
+		}
 	
 		Unit retval = null;
 		_resources_until_build -= res;
@@ -71,10 +78,8 @@ class FactoryUnit : Unit
 				retval._destination = _destination;
 			}
 			
-			_team._unit_built_counts[_current_build]++;
-			_team._total_units_by_type[_current_build]++;
-			_team._total_army_value += get_unit_build_cost(_current_build);
-			
+			_team.notify_unit_created(_current_build);
+		
 			UnitType prev_build = _current_build;
 			_current_build = determine_next_build();
 			if(_current_build != prev_build)
