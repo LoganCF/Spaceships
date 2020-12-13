@@ -77,8 +77,8 @@ class Explosion : Drawable
 		Color blend(Color first, Color second, double ratio)
 		{
 			ubyte r = interpolate(first.r, second.r, ratio );
-			ubyte g = interpolate(first.g, second.g, ratio );;
-			ubyte b = interpolate(first.b, second.b, ratio );;
+			ubyte g = interpolate(first.g, second.g, ratio );
+			ubyte b = interpolate(first.b, second.b, ratio );
 			/+ubyte r = to!ubyte( (1.0 - ratio) * first.r  + ratio * second.r );
 			ubyte g = to!ubyte( (1.0 - ratio) * first.g  + ratio * second.g );
 			ubyte b = to!ubyte( (1.0 - ratio) * first.b  + ratio * second.b );

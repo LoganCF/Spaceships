@@ -18,6 +18,9 @@ private import and.util;
 private import and.cost.model.icostfunction;
 
 import std.parallelism;
+import std.range;
+import std.traits;
+import std.conv;
 
 
 
@@ -183,24 +186,34 @@ void feedForward ( real [] inputs) {
 
  }
    
-   
-   
-   
-   /+ WIP
-   void feedForwardParralel ( real [] inputs) {
 
-    
+static const int PARALLEL_BATCH_SIZE = 6;
+
+static string maybe_para_mixin(bool para, string taskpool, string range, int batch_size = PARALLEL_BATCH_SIZE)
+{
+	return para ? taskpool ~ ".parallel(" ~ range ~ "," ~ to!string(batch_size) ~ ")" : range;
+}
+   
+   
+//WIP
+void feedForwardParallel(bool doPara) ( real [] inputs, TaskPool tp = taskPool) {
+	
+	
+	string maybe_parallel(string range) 
+	{
+		return maybe_para_mixin(doPara, "tp", range);
+	}
+	
+	
 	assert (inputs.length == neuralNetwork.input.neurons.length);
 	real sum = 0;
 	int lastHiddenLayer = neuralNetwork.hidden.length - 1;
 	
-	foreach ( int currentNeuron, Neuron nh; neuralNetwork.hidden[0].neurons)
+	foreach ( int currentNeuron, Neuron nh; mixin(maybe_parallel("neuralNetwork.hidden[0].neurons")))
 	{
 
-		sum = taskPool.reduce!"a+b"(0.0, zip(inputs, nh.synapses).map!"a[0] * a[1]")
+		sum = reduce!"a+b"(nh.bias, zip(inputs, nh.synapses).map!"a[0] * a[1]");
 		
-
-		sum += nh.bias;
 		nh.value = neuralNetwork.hidden[0].activationFunction.f(sum);
 		debug {
 			if( isNaN(nh.value) )
@@ -217,7 +230,7 @@ void feedForward ( real [] inputs) {
 	foreach ( int currentLayer, Layer l; neuralNetwork.hidden[1..$] )
 	{
 		
-		foreach ( int currentNeuron, /+inout+/ Neuron nh; l.neurons )
+		foreach ( int currentNeuron, /+inout+/ Neuron nh; mixin(maybe_parallel("l.neurons")) )
 		{
 
 			sum = 0;
@@ -260,7 +273,7 @@ void feedForward ( real [] inputs) {
 
 	}
 
-	foreach ( int currentNeuron, /+inout+/ Neuron no;neuralNetwork.output.neurons )
+	foreach ( int currentNeuron, /+inout+/ Neuron no;  mixin(maybe_parallel("neuralNetwork.output.neurons")) )
 	{
 
 		sum = 0;
@@ -282,7 +295,7 @@ void feedForward ( real [] inputs) {
 		}*/
 	}
 
-}+/
+}
 
   /**
      Parameters: the inputs to the network
@@ -328,25 +341,25 @@ void feedForward ( real [] inputs) {
 	}
 
     
-    //    Update the first hidden layer;
+    //    Update first hidden layer
 
-		foreach ( /+inout+/ Neuron nh;neuralNetwork.hidden[0].neurons )
+	foreach ( /+inout+/ Neuron nh; neuralNetwork.hidden[0].neurons )
+	{
+		foreach ( int i , real input;inputs )
 		{
-			foreach ( int i , real input;inputs )
-			{
-				real value = ( learningRate * nh.error * input );
-				/+++/debug assert(!isNaN(nh.error));
-				/+++/debug assert(!isNaN(input));
-				/+++/debug assert(!isNaN(value));
-				value += momentum * nh.lastWeightChange[i];
-				/+++/debug assert(!isNaN(nh.lastWeightChange[i]));
-				/+++/assert(!isNaN(value));
+			real value = ( learningRate * nh.error * input );
+			/+++/debug assert(!isNaN(nh.error));
+			/+++/debug assert(!isNaN(input));
+			/+++/debug assert(!isNaN(value));
+			value += momentum * nh.lastWeightChange[i];
+			/+++/debug assert(!isNaN(nh.lastWeightChange[i]));
+			/+++/assert(!isNaN(value));
 
-				nh.lastWeightChange[i] = value;
-				nh.synapses[i] += value;
+			nh.lastWeightChange[i] = value;
+			nh.synapses[i] += value;
 
 
-			}
+		}
 
 		real biasValue = ( learningRate * nh.error );
 		biasValue += momentum * nh.lastBiasChange;
@@ -355,8 +368,8 @@ void feedForward ( real [] inputs) {
 		nh.lastBiasChange = biasValue;
 		nh.bias += biasValue;
 
-		}
-
+	}
+	
 
 
    }
@@ -422,7 +435,7 @@ void feedForward ( real [] inputs) {
 
 	  */
 
-
+	//TODO: I keep copy pasting code from backprop_mod_reinforcement, so I should find a way to modularize it.
 	void train (real [] [] inputs , real [] [] expectedOutputs ) {
 		 
 		assert(inputs.length );
@@ -437,6 +450,7 @@ void feedForward ( real [] inputs) {
 		real last_error = 0.0; /+++/
 		real largest_error = 0.0; /+++/
 		real last_largest_error = 0.0; /+++/
+		bool write_progress = true; /+++/
 		
 		actualEpochs = 0;
 		
@@ -456,7 +470,7 @@ void feedForward ( real [] inputs) {
 			error = costFunction.f(expectedOutputs[patternCount],actual );
 			/+++/total_abs_error += abs(error);
 			/+++/if (abs(error) > largest_error)
-				/+++/largest_error = abs(error);
+			/+++/largest_error = abs(error);
 			/+++/assert(!isNaN(error));
 			
 			
@@ -476,10 +490,11 @@ void feedForward ( real [] inputs) {
 
 			if ( actualEpochs % callBackEpochs == 0 ) 
 			{
-				if ( progressCallback !is null )
+				/+if ( progressCallback !is null )
 				{
 					progressCallback( actualEpochs, error, 0, 0 );
-				}
+				}+/
+				write_progress = true;
 			}
 			
 			/+++/ // except conditional and patternCount = 0;
@@ -488,7 +503,16 @@ void feedForward ( real [] inputs) {
 				real avg_err = total_abs_error / patternCount;
 				if(last_error == 0.0) last_error = avg_err;
 				if(last_largest_error == 0.0) last_largest_error = largest_error;
-				writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
+				if(write_progress)
+				{
+					if ( progressCallback !is null )
+					{
+						progressCallback(actualEpochs+1, avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
+					} else {
+						writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
+					}
+					write_progress = false;
+				}
 				last_error = avg_err;
 				last_largest_error = largest_error;
 				largest_error = 0.0;

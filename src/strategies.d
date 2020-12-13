@@ -16,6 +16,7 @@ import gamestateinfo;
 
 import std.conv;
 import std.math; // square
+import std.exception; // assumeUnique
 
 
 
@@ -29,13 +30,24 @@ const Strategy[] g_strategies = [
 	strat_guard_most_threatened,
 	strat_contest_caps,
 	strat_stay_safe,
-	strat_cover_friendly_territory,
+	strat_spread_out,
 	strat_expand_safe,
 	strat_kite_and_snipe,
-	strat_decap_least_gaurded
+	strat_decap_least_gaurded,
+	strat_attack_countered_units
 ];
 
 const Behavior behv_stay_put = new Behavior(&qual_all, &prop_distance_to_unit, false);
+
+int index_of_strat(const Strategy strat)
+{
+	foreach (int i, strat_iter ; g_strategies)
+	{
+		if( strat == strat_iter)
+			return i;
+	}
+	return -1;
+}
 
 ///////////////
 //strategies:
@@ -101,10 +113,10 @@ const Strategy strat_stay_safe = new Strategy("Run!", [
 	new Behavior(&qual_all, &prop_threat, false, &prop_distance_to_unit, false)
 ]);
 
-//strat_cover_friendly_territory
-const Strategy strat_cover_friendly_territory = new Strategy("Sprd", [
-	new Behavior(&qual_is_friendly_or_unguarded_neutral, &prop_number_of_this_friendly_unit_type, false, &prop_distance_to_unit, false),
-	to!(const Evaluable)(strat_capture_least_guarded)
+//strat_spread_out
+const Strategy strat_spread_out = new Strategy("Sprd", [
+	new Behavior(&qual_not_threatened, &prop_number_of_this_friendly_unit_type, false, &prop_distance_to_unit, false),
+	to!(const Evaluable)(strat_stay_safe)
 ]);
 
 //strat_expand_safe
@@ -123,6 +135,12 @@ const Strategy strat_kite_and_snipe = new Strategy("Kite", [
 const Strategy strat_decap_least_gaurded = new Strategy("DCap", [
 	new Behavior(&qual_is_enemy, &prop_threat, false, &prop_distance_to_unit, false),
 	to!(const Evaluable)(strat_contest_caps)
+]);
+
+//strat_attack_countered_units
+const Strategy strat_attack_countered_units = new Strategy("Hunt", [
+	new Behavior(&qual_has_countered_unit, &prop_threat, false, &prop_distance_to_unit, false),
+	to!(const Evaluable)(strat_attack_weakest_enemy_force)
 ]);
 
 
@@ -151,7 +169,7 @@ bool qual_has_enemy_miners (StateInfo gamestate, int i)
 //qual_has_enemies
 bool qual_has_enemies (StateInfo gamestate, int i)
 {
-	return gamestate._team._opponent._unit_total_cost_at_points[i] > 0.0;
+	return gamestate._team._opponent._unit_total_cost_at_points[i] > 0.0001;
 }
 
 //qual_has_no_enemies
@@ -249,7 +267,7 @@ bool qual_is_threatened (StateInfo gamestate, int i)
 {
 	TeamID opponent_id = gamestate._team._opponent._id;
 	CapturePoint point = gamestate._points[i];
-	return point.getThreatAmountForTeam(opponent_id) > 0;
+	return point.getThreatAmountForTeam(opponent_id) >= 0.00001;
 }
 
 //qual_not_friendly_and_not_threatened
@@ -257,6 +275,46 @@ bool qual_not_friendly_and_not_threatened (StateInfo gamestate, int i)
 {
 	return !qual_is_friendly(gamestate, i) && !qual_is_threatened(gamestate, i);
 }
+
+//qual_not_threatened
+bool qual_not_threatened (StateInfo gamestate, int i)
+{
+	return !qual_is_threatened(gamestate, i);
+}
+
+
+immutable UnitType[][UnitType] counter_table; // static-init of an associative array is awkward
+shared static this() 
+{
+	UnitType[][UnitType] temp;
+		temp[UnitType.Interceptor] = [UnitType.Destroyer  , UnitType.Miner     ];
+		temp[UnitType.Destroyer  ] = [UnitType.Battleship , UnitType.Mothership];
+		temp[UnitType.Cruiser    ] = [UnitType.Interceptor, UnitType.Miner     ];
+		temp[UnitType.Battleship ] = [UnitType.Cruiser    , UnitType.Mothership];
+		temp[UnitType.Mothership ] = [];
+		temp[UnitType.Miner      ] = [];
+		
+	counter_table = assumeUnique(temp);                            
+}
+
+//qual_has_countered_unit
+bool qual_has_countered_unit (StateInfo gamestate, int i)
+{
+	
+	UnitType unit_type = gamestate._unit._type;
+	if (counter_table[unit_type].length == 0)
+		return false;
+	TeamObj opponent = gamestate._team._opponent;
+	foreach(type; counter_table[unit_type])
+	{
+		if(opponent._unit_counts[i][to!int(type)] > 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 
 
 ///////////////

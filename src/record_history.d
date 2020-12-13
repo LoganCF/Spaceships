@@ -35,7 +35,7 @@ class RecordHistory
 		//get the size of a completed record, including the array, but not the array pointer
 		//TODO: find out if this is actually the size of what gets written
 		/+CompletedRecord.classinfo.init.length - (real[]).sizeof+/ 
-		_record_size = int.sizeof*4 + real.sizeof*1 + bool.sizeof*1 + real.sizeof*num_inputs;
+		_record_size = int.sizeof*4 + real.sizeof*2 + bool.sizeof*1 + real.sizeof*num_inputs;
 		//debug
 		writefln("record size: %d, real is %d, real[] is %d, completed record is %d",_record_size,real.sizeof, (real[]).sizeof, CompletedRecord.classinfo.init.length);
 	}
@@ -51,6 +51,7 @@ class RecordHistory
 	~this()
 	{
 		writefln("deleting RecordHistory object for %s", _filename);
+		//close();
 	}
 	
 	void close()
@@ -80,6 +81,7 @@ class RecordHistory
 					if (_file.error() != 0)
 						writefln("file.error = %d (after flush,sync)",_file.error());
 					_file.close();
+					writefln("closed %s", _filename);
 					break;
 				case Filemode.read:
 					//_file.open(to!string(_filename),"a+b");
@@ -96,6 +98,7 @@ class RecordHistory
 				case Filemode.write:
 					
 					// grab num_records
+					writefln("entering writemode on %s", _filename);
 					_file.seek(0,SEEK_SET);
 					int[1] input_int;
 					_file.rawRead(input_int);
@@ -110,17 +113,23 @@ class RecordHistory
 		{
 			switch(ec.errno)
 			{
+			case 0:
+				writefln("Errno is %d, message: %s", errno, ec.msg);
+				break;
 			case EPERM: case EACCES:
 				writeln("file access denied");
+				throw ec;
 				break;
 			case ENOENT:
 				writeln("file does not exist");
+				throw ec;
 				break;
 			default: 
 				writefln("Errno is %d", errno);
+				throw ec;
 				break;
 			}
-			throw ec;
+			
 		}
 	}
 	
@@ -132,6 +141,7 @@ class RecordHistory
 		{
 		case Filemode.closed:
 			//open file
+			writefln("Hist. opening %s", _filename);
 			bool already_exists = exists(_filename);
 			_file.open(to!string(_filename),"a+b");
 			if(!already_exists)
@@ -145,7 +155,7 @@ class RecordHistory
 			// write _current_record_index to file
 			_file.seek(int.sizeof,SEEK_SET); // second int in the file
 			_file.rawWrite([_current_record_index]);
-			write("wrote record index:");
+			writef("Done reading %s, wrote record index:", _filename);
 			writeln(_current_record_index);
 			//_file.close();
 			break;
@@ -153,6 +163,7 @@ class RecordHistory
 			// write _num_records to file
 			_file.seek(0,SEEK_SET); // first int in the file
 			_file.rawWrite([_num_records]);
+			writefln("Done writing %s, wrote num records: %d", _filename, _num_records);
 			//_file.close();,/
 			break;
 		}
@@ -223,8 +234,8 @@ class RecordHistory
 
 		real[2] real_array;
 		real_array[] = 0.5;
-		CompletedRecord recd1 = new CompletedRecord(1,0.3,real_array,1,4);
-		CompletedRecord recd2 = new CompletedRecord(1,0.3,real_array,1,4);
+		CompletedRecord recd1 = new CompletedRecord(1,0.3,0.1,real_array,1,4);
+		CompletedRecord recd2 = new CompletedRecord(1,0.3,0.1,real_array,1,4,2,true);
 		rhist.add_record_to_file(recd1);
 		rhist.add_record_to_file(recd2);
 		

@@ -51,9 +51,9 @@ class PlayerTeam : TeamObj
 	string _player_name;
 	
 	this(TeamID in_id, inout Color in_color, inout char[] in_name, inout char[] in_player_name = cast(inout char[])"Player",
-		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null) 
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null, int[] in_nn_archi = [] ) 
 	{
-		super( in_id, in_color, in_name, true, in_build_act_fn, in_command_act_fn);
+		super( in_id, in_color, in_name, true, in_build_act_fn, in_command_act_fn, in_nn_archi);
 		
 		_is_player_controlled = true;
 	
@@ -87,7 +87,7 @@ class PlayerTeam : TeamObj
 	}
 	
 	//yes, this is a manual team, but we train a neural net to do what it does!
-	override void init_ais(inout char[] in_name)
+	override void init_ais(inout char[] in_name, int[] nn_archi)
 	{
 		
 		NNManagerBase build_nnm = new NNManagerCopycat(in_name ~ "_build.txt"    , _build_act_fn);
@@ -108,7 +108,7 @@ class PlayerTeam : TeamObj
 		// left-click selection
 		if(!_selecting)
 		{
-			if( Mouse.isButtonPressed(Mouse.Button.Left) )
+			if( Mouse.isButtonPressed(Mouse.Button.Left) ) //TODO: change how selection works?
 			{
 				_selecting = true;
 				
@@ -206,7 +206,7 @@ class PlayerTeam : TeamObj
 			
 			foreach(unit ; _selected)
 			{
-				unit._destination = move_to;
+				unit._destination = move_to; //TODO: snap to point?
 				
 				if(unit._destination_id != -1)
 				{

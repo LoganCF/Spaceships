@@ -18,6 +18,7 @@ import and.activation.sigmoid;
 import and.activation.tanh;
 import and.activation.linear;
 import and.activation.leaky_relu;
+import and.activation.leaky_relu6;
 import and.platform;
 
 
@@ -32,8 +33,12 @@ Save the trained network to a file to load later
    Returns: true or false depending on success or failure
 */
 
+
+//TODO: make these use binary files
 bool saveNetwork(NeuralNetwork nn , char [] path)
 {
+	synchronized
+	{
 	bool reported = false;
 
 	bool ret = true;
@@ -41,13 +46,13 @@ bool saveNetwork(NeuralNetwork nn , char [] path)
 	try 
 	{
 		//TODO: std.stream is obsolete.
-		stdstream.File f = new stdstream.File(dup_path, stdstream.FileMode.Out );
-		f.writeString( /+std.string.+/to!string(nn.input.neurons.length) ~ "\t" ~ to!string(nn.hidden.length) ~ "\t");
+		File f = File(dup_path, "w" );
+		f.write( /+std.string.+/to!string(nn.input.neurons.length) ~ "\t" ~ to!string(nn.hidden.length) ~ "\t");
 		foreach (layer; nn.hidden)
 		{
-			f.writeString(/+std.string.+/to!string(layer.neurons.length) ~ "\t");
+			f.write(/+std.string.+/to!string(layer.neurons.length) ~ "\t");
 		}
-		f.writeLine( /+std.string.+/to!string(nn.output.neurons.length) ~ "\t" ~ /+std.string.+/to!string(cast(int)nn.output.activationFunction.id() ) );
+		f.writeln( /+std.string.+/to!string(nn.output.neurons.length) ~ "\t" ~ /+std.string.+/to!string(cast(int)nn.output.activationFunction.id() ) );
 
 		foreach (layer ; nn.hidden)
 		{
@@ -55,16 +60,16 @@ bool saveNetwork(NeuralNetwork nn , char [] path)
 			{
 				for ( int i = 0 ; i < n.synapses.length;i++ )
 				{
-					f.writeLine(/+std.string.+/to!string( n.synapses[i] ));
+					f.writeln(/+std.string.+/to!string( n.synapses[i] ));
 					if(isNaN(n.synapses[i]) && !reported ) {writefln("weight is %f",n.synapses[i]);  reported = true;} 
 					// write last weight change
-					f.writeLine(to!string( n.lastWeightChange[i] ));
+					f.writeln(to!string( n.lastWeightChange[i] ));
 				}
 
-				f.writeLine(/+std.string.+/to!string( n.bias ) );
+				f.writeln(/+std.string.+/to!string( n.bias ) );
 				if( isNaN(n.bias) && !reported ) {writefln("weight is %f",n.bias); reported = true;}
 				// write last bias change
-				f.writeLine(to!string( n.lastBiasChange ));
+				f.writeln(to!string( n.lastBiasChange ));
 			}
 		}
 
@@ -73,14 +78,14 @@ bool saveNetwork(NeuralNetwork nn , char [] path)
 		{
 			for ( int i = 0 ; i < n.synapses.length;i++ )
 			{
-				f.writeLine(/+std.string.+/to!string(n.synapses[i]) );
+				f.writeln(/+std.string.+/to!string(n.synapses[i]) );
 				//write last wieght change
-				f.writeLine(to!string( n.lastWeightChange[i] ));
+				f.writeln(to!string( n.lastWeightChange[i] ));
 			}
 
-			f.writeLine(/+std.string.+/to!string(n.bias ) );
+			f.writeln(/+std.string.+/to!string(n.bias ) );
 			// write last bias change
-			f.writeLine(to!string( n.lastBiasChange ));
+			f.writeln(to!string( n.lastBiasChange ));
 
 		}
 
@@ -89,11 +94,12 @@ bool saveNetwork(NeuralNetwork nn , char [] path)
 	}
 	catch ( Exception e )
 	{
+		writefln("Error in and.serialize.saveNetwork: \n%s", e.msg);
 		ret = false;
 	}
 
 	return ret;
-
+	}
 }
 
 
@@ -112,9 +118,9 @@ NeuralNetwork loadNetwork(char [] path )
    NeuralNetwork nn = null;
       
 	string dup_path = path.dup;
-	stdstream.File f = new stdstream.File(dup_path, stdstream.FileMode.In );
-	char [] l = f.readLine();
-	char [] [] data = l.split("\t");
+	File f = File(dup_path, "r" );
+	string l = f.readln();
+	string [] data = l.split("\t");
 
 	int data_iter = 0;
 	
@@ -127,16 +133,17 @@ NeuralNetwork loadNetwork(char [] path )
 		nh ~= to!int(data[data_iter++]);
 	}
 	int no = to!int(data[data_iter++]);
-	int af = to!int(data[data_iter++]);
+	int af = to!int(data[data_iter++][0..$-1]);
 
 	IActivationFunction afunc;
 
 	final switch ( af )
 	{
-		case ActivationId.SIGMOID    : afunc = new SigmoidActivationFunction;   break;
-		case ActivationId.TANH       : afunc = new TanhActivationFunction;      break;
-		case ActivationId.LINEAR     : afunc = new LinearActivationFunction;    break;
-		case ActivationId.LEAKY_RELU : afunc = new LeakyReLUActivationFunction; break;
+		case ActivationId.SIGMOID     : afunc = new SigmoidActivationFunction;    break;
+		case ActivationId.TANH        : afunc = new TanhActivationFunction;       break;
+		case ActivationId.LINEAR      : afunc = new LinearActivationFunction;     break;
+		case ActivationId.LEAKY_RELU  : afunc = new LeakyReLUActivationFunction;  break;
+		case ActivationId.LEAKY_RELU6 : afunc = new LeakyReLU6ActivationFunction; break;
 		
 		
 	}
@@ -161,17 +168,17 @@ NeuralNetwork loadNetwork(char [] path )
 		{
 			for ( int i = 0 ; i < n.synapses.length;i ++ )
 			{
-				char [] line = f.readLine();
+				string line = f.readln();
 
-				n.synapses[i] = line.to!real();
+				n.synapses[i] = line[0..$-1].to!real();
 				if(isNaN(n.synapses[i]) && !reported ) {writefln("weight is %f",n.synapses[i]); reported = true;}
-				n.lastWeightChange[i] = to!real( f.readLine());
+				n.lastWeightChange[i] = to!real( f.readln()[0..$-1]);
 			}
 
-			n.bias = to!real(f.readLine() );
+			n.bias = to!real(f.readln()[0..$-1] );
 			if(isNaN(n.bias) && !reported ) {writefln("bias is %f",n.bias); reported = true; }
 			// read last bias change
-			n.lastBiasChange = to!real(f.readLine() );
+			n.lastBiasChange = to!real(f.readln()[0..$-1] );
 		}
 	}
 
@@ -181,14 +188,14 @@ NeuralNetwork loadNetwork(char [] path )
 	{
 		for ( int i = 0 ; i < n.synapses.length;i ++ )
 		{
-			char [] line = f.readLine();
-			n.synapses[i] = line.to!real();
-			n.lastWeightChange[i] = to!real( f.readLine());
+			string line = f.readln();
+			n.synapses[i] = line[0..$-1].to!real();
+			n.lastWeightChange[i] = to!real( f.readln()[0..$-1]);
 		}
 
-		n.bias = to!real(f.readLine() );
+		n.bias = to!real(f.readln()[0..$-1] );
 		// read last bias change
-		n.lastBiasChange = to!real(f.readLine() );
+		n.lastBiasChange = to!real(f.readln()[0..$-1] );
 	}
 
    return nn;

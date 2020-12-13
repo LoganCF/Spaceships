@@ -49,27 +49,9 @@ class NetworkInputDisplay : Drawable
 	this(Vector2f in_position, Color in_base_color, Color in_alternate_base_color)
 	{
 		_base_position = in_position;
-		_base_color    = in_base_color;
-		_alternate_base_color = in_alternate_base_color;
 	
-		for(int i = 0 ; i < _shade_table.length; ++i)
-		{
-			double shade = i * 2; 
-			ubyte r = to!ubyte( shade / 255.0f * _base_color.r );
-			ubyte g = to!ubyte( shade / 255.0f * _base_color.g );
-			ubyte b = to!ubyte( shade / 255.0f * _base_color.b );
-			_shade_table[i] = Color(r, g, b);
-		}
-		
-		for(int i = 0 ; i < _shade_table.length; ++i)
-		{
-			double shade = i * 2; 
-			ubyte r = to!ubyte( shade / 255.0f * _alternate_base_color.r );
-			ubyte g = to!ubyte( shade / 255.0f * _alternate_base_color.g );
-			ubyte b = to!ubyte( shade / 255.0f * _alternate_base_color.b );
-			_alternate_shade_table[i] = Color(r, g, b);
-		}
-		
+		init_shade_table(in_base_color);
+		init_alt_shade_table(in_alternate_base_color);		
 		
 		//categories are:
 		//unit counts at points (at each point and by type)
@@ -226,6 +208,31 @@ class NetworkInputDisplay : Drawable
 				}
 				input_iter++;
 			}
+		}
+	}
+	
+	
+	void init_shade_table(Color c)
+	{
+		_base_color = c;
+		init_shade_table_internal(c, _shade_table);
+	}
+	
+	void init_alt_shade_table(Color c)
+	{
+		_alternate_base_color = c;
+		init_shade_table_internal(c, _alternate_shade_table);
+	}
+	
+	void init_shade_table_internal(Color c, Color[NUM_SHADES] table)
+	{
+		for(int i = 0 ; i < table.length; ++i)
+		{
+			double shade = i * 2; 
+			ubyte r = to!ubyte( shade / 255.0f * c.r );
+			ubyte g = to!ubyte( shade / 255.0f * c.g );
+			ubyte b = to!ubyte( shade / 255.0f * c.b );
+			_shade_table[i] = Color(r, g, b);
 		}
 	}
 	

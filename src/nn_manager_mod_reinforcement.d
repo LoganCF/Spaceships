@@ -22,6 +22,7 @@ class NNManagerModReinforcement : NNManagerBase
 	{
 		super(filename, actfn);
 		_epoch_limit   = 15_000;
+		_random_scaling = .1;
 	}
 	
 	override void do_init(int num_inputs, int[] num_hidden_neurons_in_layer, int num_outputs)
@@ -40,7 +41,7 @@ class NNManagerModReinforcement : NNManagerBase
 		_neural_net = new NeuralNetwork(input, hidden, output);
 		
 		_cost = new SSE(); // sum-squared errors
-		_backprop = new ModifiedReinforcementBackPropagation(_neural_net, _cost);
+		_backprop = new ModifiedReinforcementBackPropagation(_neural_net, _cost); //TODO: parameterize
 		
 		//configure_backprop(); // asjust_nn_params is called from ai
 	}
@@ -83,7 +84,7 @@ class NNManagerModReinforcement : NNManagerBase
 		{
 			_training_input  ~= record.inputs;	
 			_output_records  ~= _ai.getResultFromRecord(record);
-			_training_scores ~= record.score;
+			_training_scores ~= record.delta_score; //TODO: make it not always use delta_score
 		}
 	}
 	
@@ -99,7 +100,7 @@ class NNManagerModReinforcement : NNManagerBase
 		
 		int epochs = max(inputs.length, _epoch_limit);
 		/+to!int( epoch_factor / inputs.length );
-		if (epochs == 0) epochs = 1=+/;
+		if (epochs == 0) epochs = 1=;+/
 		writefln("Training Mod-Reinforcement Network, %d epochs, %d records", epochs, output_records.length);
 		
 		_backprop.setProgressCallback(&callback, 500 );

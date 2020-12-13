@@ -14,6 +14,7 @@ import collision;
 import unit;
 //import spaceships;
 import team;
+import mathutil;
 
 
 import std.random;
@@ -29,7 +30,12 @@ class FactoryUnit : Unit
 	
 	double _build_boredom_timer = 0.0;
 	
-	double _last_built_up = false; // alternate building left-up and left-right ot avoid odd behaviors
+	int _next_build_direction = 0; // cycle building directions to avoid odd behaviors
+	Vector2d[] _build_offsets = [
+		Vector2d(-.5, -.5), 
+		Vector2d(-.5,  .5), 
+		Vector2d( .5,  .5), 
+		Vector2d( .5, -.5)];
 	
 	this(double x, double y, 
 		 double in_max_vel = 400.0, double in_max_accel = 800.0, float size = 2, ShapeType in_shape = ShapeType.Circle, Color in_color = Color.Red,
@@ -42,6 +48,8 @@ class FactoryUnit : Unit
 		_team._num_factories++;
 		_current_build = UnitType.None;//_team.get_build_order(this);
 		_resources_until_build = 0.0;//get_unit_build_cost( _current_build );
+		if (_team._id == TeamID.One)
+			_next_build_direction = 2;
 	}
 	
 	override void take_damage(double in_damage, DamageType dmg_type)
@@ -102,16 +110,17 @@ class FactoryUnit : Unit
 	
 	Unit build()
 	{
-		double y_offset = _last_built_up ? - 0.5 : 0.5;
-		_last_built_up = !_last_built_up;
-		Unit produced = make_unit(_current_build, _team, _color, _pos.x - 1.0, _pos.y + y_offset, _player_controlled );
+		Vector2d offset = _build_offsets[_next_build_direction];
+		_next_build_direction = (_next_build_direction + 1) % _build_offsets.length;
+
+		Unit produced = make_unit(_current_build, _team, _color, _pos.x + offset.x, _pos.y + offset.y, _player_controlled );
 		produced.get_orders();
 		return produced;
 	}
 	
 	UnitType determine_next_build()
 	{
-		if(_player_controlled)
+		if(_player_controlled && _current_build != UnitType.None)
 		{
 			_team.record_build_decision(this, _current_build);
 			return _current_build;
@@ -155,7 +164,7 @@ double get_unit_build_cost( UnitType type )
 			return UNIT_COST_BASE * 2.0;
 			break;
 		case UnitType.Mothership:
-			return UNIT_COST_BASE * 18.0;
+			return UNIT_COST_BASE * 12.0;
 			break;
 		case UnitType.None:
 			assert(0);

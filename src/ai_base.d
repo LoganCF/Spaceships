@@ -29,8 +29,8 @@ import spaceships;
 
 
 //TODO: move these constants to ai subclasses?
-const double BUILD_AI_WINDOW   = 60.0;
-const double COMMAND_AI_WINDOW = 20.0;
+const double BUILD_AI_WINDOW   = 30.0;
+const double COMMAND_AI_WINDOW = 15.0;
 
 const int NUM_BASE_AI_INPUTS = NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 
 			+ NUM_UNIT_TYPES * 2 
@@ -54,12 +54,14 @@ class BaseAI
 	
 	NNManagerBase _nn_mgr;
 	RecordKeeper _record_keeper;
+	int[] _num_hidden;
 	
-	double CHANCE_OF_RANDOM_ACTION = 0.0001;
+	double CHANCE_OF_RANDOM_ACTION = 0.005;
 	
 
-	this( NNManagerBase in_nnm) 
+	this( NNManagerBase in_nnm, int[] in_num_hidden = [144, 48]) 
 	{
+		_num_hidden = in_num_hidden;
 		_nn_mgr = in_nnm;
 		if( !_nn_mgr.load_net() ) 
 		{
@@ -72,6 +74,12 @@ class BaseAI
 		setup_ai(in_nnm);
 		in_nnm._ai = this;
 		
+	}
+	
+	~this()
+	{
+		destroy(_nn_mgr);
+		destroy(_record_keeper); 
 	}
 	
 	//TODO: 

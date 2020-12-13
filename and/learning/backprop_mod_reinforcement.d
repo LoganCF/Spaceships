@@ -40,8 +40,8 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 		{
 			if(i == output_neuron_num)
 			{
-				//error = derivative of SSE * derivative of output activation function 
 				no.error = ( expected - no.value ) * neuralNetwork.output.activationFunction.fDerivative(no.value );
+				
 				if (isNaN(no.error) )
 				{
 					writefln("actual: %f, predicted: %f, deriv: %f, epoch: %d",expected, no.value, neuralNetwork.output.activationFunction.fDerivative(no.value ), actualEpochs);
@@ -192,9 +192,14 @@ class ModifiedReinforcementBackPropagation : BackPropagation
 				if(last_largest_error == 0.0) last_largest_error = largest_error;
 				if(write_progress)
 				{
-					writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
-					write_progress = false;
+					if ( progressCallback !is null )
+					{
+						progressCallback(actualEpochs+1, avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
+					} else {
+						writefln("Average Error: % 7f (%+7f)    Largest Error: % 7f (%+7f)", avg_err, avg_err - last_error, largest_error, largest_error - last_largest_error);
 					}
+					write_progress = false;
+				}
 				last_error = avg_err;
 				last_largest_error = largest_error;
 				largest_error = 0.0;

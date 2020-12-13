@@ -29,9 +29,9 @@ class BuildAI : BaseAI
 	
 	//string _filename;
 
-	this( NNManagerBase in_nnm )
+	this( NNManagerBase in_nnm, int[] in_num_hidden = [144, 48] )
 	{
-		super(in_nnm);
+		super(in_nnm, in_num_hidden);
 		_record_keeper.set_time_window(BUILD_AI_WINDOW * _nn_mgr.time_window_scale);
 	}
 	
@@ -68,7 +68,7 @@ class BuildAI : BaseAI
 			int num_inputs = NUM_BASE_AI_INPUTS + 1;
 				
 			int num_outputs = NUM_UNIT_TYPES;
-			int[] num_hidden_neurons = [144, 48];
+			int[] num_hidden_neurons = _num_hidden;
 			
 			
 			_nn_mgr.do_init(num_inputs, num_hidden_neurons, num_outputs);	

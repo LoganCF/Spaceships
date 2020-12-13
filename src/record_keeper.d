@@ -8,6 +8,8 @@ import std.container.dlist;
 import std.container.util;
 import std.algorithm.comparison;	
 import std.stdio;
+import std.exception;
+import core.runtime;
 
 import core.memory;
 
@@ -20,7 +22,7 @@ import unit;
 struct PendingRecord
 {
 	int territory_diff;
-	//real score; ?
+	real score;
 	
 	double timestamp;
 	real[] inputs;
@@ -31,11 +33,11 @@ struct PendingRecord
 	UnitType unittype; // type of the unit receiving the order, or type of the unit being built
 	int num_duplicates; //TODO: replace above with this
 	
-	this(int tdiff, double tim, real[] inpt, int dups, int dec, int strat = -1)
+	this(int tdiff, real sc, double tim, real[] inpt, int dups, int dec, int strat = -1)
 	{
 		
 		territory_diff = tdiff;
-		//score     = sc; ?
+		score     = sc;
 		
 		timestamp = tim;
 		inputs    = inpt;
@@ -52,6 +54,7 @@ class CompletedRecord
 {
 	int delta_territory_diff; // change in difference between opponent's and my territory.
 	real score;
+	real delta_score;
 	
 	real[] inputs;
 	
@@ -62,10 +65,11 @@ class CompletedRecord
 	
 	int num_duplicates;
 	
-	this(int delta_terr_dif, real sc, real[] inpt, int dups, int dec, int strat = -1, bool is_end = false)
+	this(int delta_terr_dif, real sc, real dsc, real[] inpt, int dups, int dec, int strat = -1, bool is_end = false)
 	{
 		delta_territory_diff = delta_terr_dif;
 		score = sc;
+		delta_score = dsc;
 		inputs = inpt;
 		decision = dec;
 		strategy = strat;
@@ -78,6 +82,7 @@ class CompletedRecord
 	{
 		delta_territory_diff = territory_diff_now - pending.territory_diff;
 		score = score_now;
+		delta_score = score_now - pending.score;
 		inputs   = pending.inputs;
 		decision = pending.decision;
 		strategy = pending.strategy;
@@ -89,7 +94,7 @@ class CompletedRecord
 	void write_to_binary(File f)
 	{
 		int[]  ints_to_write  = [delta_territory_diff, decision, strategy, num_duplicates];
-		real[] reals_to_write = [score];
+		real[] reals_to_write = [score, delta_score];
 		bool[] bools_to_write = [endgame];
 		
 		f.rawWrite (ints_to_write);
@@ -101,8 +106,10 @@ class CompletedRecord
 	
 	static CompletedRecord read_from_binary(File f, int num_inputs)
 	{
+		try 
+		{
 		int [4] ints_to_read;
-		real[1] reals_to_read;
+		real[2] reals_to_read;
 		bool[1] bools_to_read;
 		real[] inputs_to_read;
 		inputs_to_read.length = num_inputs;
@@ -115,12 +122,18 @@ class CompletedRecord
 		return new CompletedRecord(
 								ints_to_read[0],  //delta_territory_diff
 								reals_to_read[0], //score
+								reals_to_read[1], //delta_score
 								inputs_to_read,   //inputs
 								ints_to_read[3],  //num_duplicates
 								ints_to_read[1],  //decision
 								ints_to_read[2],  //strategy
 								bools_to_read[0]  //endgame
 								);
+		} catch (Exception e)
+		{
+			writefln("Problem reading record in:\n%s\n----\n\n", defaultTraceHandler());
+			throw e;
+		}
 	}
 	
 	//bool opEquals( ref const CompletedRecord r) const
@@ -130,6 +143,7 @@ class CompletedRecord
 		
 		if (delta_territory_diff != r.delta_territory_diff ||
 			score != r.score ||
+			delta_score != r.delta_score ||
 			inputs.length != r.inputs.length ||
 			decision != r.decision ||
 			strategy != r.strategy ||
@@ -151,10 +165,12 @@ class CompletedRecord
 	void print()
 	{
 		writefln("d_terr_diff: %d",delta_territory_diff);
-		writefln("score: %f",score);
+		writefln("score: %s",score);
+		writefln("d_score: %s",delta_score);
 		writefln("input count: %d",inputs.length);
 		writefln("decision: %d",decision);
 		writefln("strategy: %d",strategy);
+		writefln("dups: %d",num_duplicates);
 		writefln("endgame: %s", endgame? "true":"false");
 		foreach( int i, real input ; inputs)
 		{
@@ -189,17 +205,23 @@ class RecordKeeper
 		//_pending_record_queue = make!(DList!PendingRecord);
 	}
 	
+	~this()
+	{
+		destroy(_completed_records);
+	}
+	
 	// create a pending record, we add it to closed records when the time-window has elasped.
 	// this function is called at the time an order is given.
 	void record_decision(real[] inputs, int num_duplicates, int choice, int strategy)
 	{
-		_pending_record_queue.insert( PendingRecord(_last_territory_diff, _last_timestamp, inputs, num_duplicates, choice, strategy) );
+		_pending_record_queue.insert( PendingRecord(_last_territory_diff, _last_score, _last_timestamp, inputs, num_duplicates, choice, strategy) );
 	}
 	
 	//close all records whose windows have elasped
 	void update_records(double now, int territory_diff, real score )
 	{
 		_last_score = score;
+		assert(!isNaN(_last_score));
 		_last_territory_diff = territory_diff;
 		_last_timestamp = now;
 		while(!_pending_record_queue.empty && now - _pending_record_queue.front.timestamp >= _time_window)
@@ -264,12 +286,12 @@ class RecordKeeper
 		writeln("Trash out!");
 	}
 	
-	
+	/+
 	void fill_to_n_records_from_history(RecordHistory hist, uint n)
 	{
 		hist.fill_array_to_n_records(_completed_records, n);
 	}
-	
+	+/
 }
 
 

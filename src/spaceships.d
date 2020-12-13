@@ -14,7 +14,10 @@ import std.math;
 import std.random;	
 import std.stdio;
 import std.conv;
+import std.algorithm;
 import std.algorithm.mutation;
+import std.algorithm.iteration;
+import std.algorithm.searching;
 import std.typecons;
 import std.file;
 import std.array;
@@ -32,6 +35,10 @@ import team_manual;
 import team_random;
 import team_scripted_capper;
 import team_scripted_defender;
+import team_scripted_aggro;
+import team_scripted_boom;
+import team_scripted_capper2;
+import team_scripted_assassin;
 import team_single_strategy;
 import team_mod_reinforcement;
 import team_mod_r_strat;
@@ -45,6 +52,7 @@ import matchinfo;
 import strategy;
 import strategies;
 import explosion;
+import record_history;
 
 import nn_manager_mod_r_with_history; // TODO: temp, we can remove this with better abstraction;
 
@@ -52,9 +60,6 @@ import dsfml.graphics;
 import dsfml.system;
 import and.api;
 
-
-//TODO: put the teams, capture points, and unit/factory arrays in a Match object (so we could run more than one of them!)
-// 
 
 const int NUM_CAPTURE_POINTS = 12;
 
@@ -86,9 +91,13 @@ struct NamedColor
 }
 
 enum AiType { NeuralNet, NeuralNetDontTrain, NeuralNetModReinforcement, NeuralNetModRWithHistory, NeuralNetModRWithHistoryStrat, NeuralNetStrat, NeuralNetModRStrat,
-			  Random, Manual, ScriptedCapper, ScriptedDefender, 
-			  Strategy1, Strategy2, Strategy3, Strategy4, Strategy5, Strategy6, Strategy7, Strategy8, Strategy9, Strategy10};
-enum ActFnType { Default, Sigmoid, ReLU, Tanh };
+			   Manual, 
+			   // only scripted ais after this point.
+			   Random, ScriptedCapper, ScriptedDefender, ScriptedAggro, ScriptedBoom, ScriptedCapper2, ScriptedAssassin,
+			   Strategy1, Strategy2, Strategy3, Strategy4, Strategy5, Strategy6, Strategy7, Strategy8, Strategy9, Strategy10};
+enum ActFnType { Default, Sigmoid, ReLU, Tanh, ReLU6 };
+enum NNArchi: int[] { Smol = [144], Standard = [144, 48], ThiccBoi = [96, 72, 60, 48]};
+
 
 struct PlayerIdentity
 {
@@ -96,13 +105,19 @@ struct PlayerIdentity
   Color c;
   AiType type;
   ActFnType act_fn;
+  int[] nn_archi;
   
-  this(string in_n, Color in_c, AiType in_type, ActFnType in_act_fn = ActFnType.Default)
+  this(string in_n, Color in_c, AiType in_type, ActFnType in_act_fn = ActFnType.Default, int[] in_nn_archi = NNArchi.Standard)
   {
 	n = in_n;
 	c = in_c;
 	type = in_type;
 	act_fn = in_act_fn;
+	nn_archi = in_nn_archi;
+  }
+  bool is_scripted()
+  {
+	return type >= AiType.Random;
   }
   
 }
@@ -160,6 +175,8 @@ PlayerIdentity[]  ai_identities = [
 						  //,PlayerIdentity("Blue"         , Color(0x80, 0x80, 0xFF), AiType.NeuralNetDontTrain)
 						  +/
 						  
+						  
+						  /+
 						   PlayerIdentity( "Red_modr_strat"       , Color(0xFF, 0x00, 0x00), AiType.NeuralNetModRStrat, ActFnType.ReLU)
 						  ,PlayerIdentity( "DeepPink_strat"  , Color(0xFF, 0x14, 0x93), AiType.NeuralNetStrat)
 						  ,PlayerIdentity( "DarkViolet", Color(0x94, 0x00, 0xD3), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
@@ -167,12 +184,39 @@ PlayerIdentity[]  ai_identities = [
 						  ,PlayerIdentity( "Blue_NN_RELU"         , Color(0x00, 0x00, 0xFF), AiType.NeuralNet, ActFnType.ReLU)
 						  ,PlayerIdentity( "Chartreuse_MRLH", Color(0x7F, 0xFF, 0x00), AiType.NeuralNetModRWithHistory, ActFnType.ReLU)
 						  ,PlayerIdentity( "DarkOliveGreen",Color(0x55,0x6B,0x2F), AiType.NeuralNetModReinforcement, ActFnType.ReLU)
-						  ,PlayerIdentity( "DarkTurquiose", Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
 						  ,PlayerIdentity( "DarkTurquiose__", Color(0x00, 0xCE, 0xFF), AiType.Strategy4)
-						  ,PlayerIdentity( "Coral_MRLH"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
+						  +/
+
+						/+
+						   PlayerIdentity( "Coral_MRLH"     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModRWithHistoryStrat, ActFnType.Tanh)
 						  ,PlayerIdentity( "Chartreuse_MRLH", Color(0x7F, 0xFF, 0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
-						  ,PlayerIdentity( "YellowOrange",Color(0xFF,0xCC,0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
+						  ,PlayerIdentity( "YellowOrange"   , Color(0xFF, 0xCC, 0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.Sigmoid)
+						  ,PlayerIdentity( "SkyBlue"        , Color(0x70, 0xFF, 0xC0), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU6)
+						  ,PlayerIdentity( "SteelBlue"      , Color(0x46, 0x82, 0xB4), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU, NNArchi.ThiccBoi)
+						  ,PlayerIdentity( "DeepPink" , Color(0xFF, 0x14, 0x93), AiType.NeuralNetModRWithHistory, ActFnType.ReLU)
+						  ,PlayerIdentity( "DarkTurquiose"  , Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper)
+						  ,PlayerIdentity( "Red_aggro"      , Color(0xFF, 0x00, 0x00), AiType.ScriptedAggro)
+						  ,PlayerIdentity( "Pink_boom"      , Color(0xFF, 0x69, 0xb4), AiType.ScriptedBoom)
+						 +/
+
+						   
+						  
+						   //PlayerIdentity( "YellowOrange"   , Color(0xFF, 0xCC, 0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.Sigmoid)
+						  //,PlayerIdentity( "Coral     "     , Color(0xFF, 0x7F, 0x50), AiType.NeuralNetModRWithHistoryStrat, ActFnType.Sigmoid, NNArchi.ThiccBoi)
+						  PlayerIdentity( "DarkViolet_"     , Color(0x94, 0x00, 0xD3), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU)
+						  //,PlayerIdentity( "DeepPink_"       , Color(0xFF, 0x14, 0x93), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU, NNArchi.ThiccBoi)
+						  ,PlayerIdentity( "Chartreuse_"     , Color(0x7F, 0xFF, 0x00), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU6)
+						  //,PlayerIdentity( "Aquamarine_"     , Color(0x70, 0xFF, 0xC0), AiType.NeuralNetModRWithHistoryStrat, ActFnType.ReLU6, NNArchi.ThiccBoi)
+						  ,PlayerIdentity( "DarkTurquiose"  , Color(0x00, 0xCE, 0xD1), AiType.ScriptedCapper2)
+						  ,PlayerIdentity( "DarkRed"        , Color(0xB2, 0x22, 0x22), AiType.ScriptedAssassin)
+						  ,PlayerIdentity( "Red_aggro"      , Color(0xFF, 0x00, 0x00), AiType.ScriptedAggro)
+						  ,PlayerIdentity( "Pink_boom"      , Color(0xFF, 0x69, 0xb4), AiType.ScriptedBoom)
+						  
+						  
+						  
+						  
 						  /+
+						  // strategy testing group
 						  ,PlayerIdentity( "Red"       , Color(0xFF, 0x00, 0x00), AiType.Strategy1)
 						  ,PlayerIdentity( "SteelBlue" , Color(0x46, 0x82, 0xB4), AiType.Strategy2)
 						  ,PlayerIdentity( "Chartreuse", Color(0x7F, 0xFF, 0x00), AiType.Strategy3)
@@ -192,6 +236,9 @@ PlayerIdentity manual_identity = PlayerIdentity( "DarkGrey",forest_green,AiType.
 							
 int[string] win_counts;
 int[string] loss_counts;
+alias Tuple!(string,string) countvskey;
+int[countvskey] win_counts_vs; // win_counts_vs[A][B] is the number of games A has won against B.
+int[countvskey] loss_counts_vs;
 
 //factory function for various kinds of TeamObj
 TeamObj make_team(TeamID id, PlayerIdentity player_identity)
@@ -202,30 +249,38 @@ TeamObj make_team(TeamID id, PlayerIdentity player_identity)
   final switch(player_identity.type)
   {
 	case AiType.NeuralNet:
-		return new TeamObj   (id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new TeamObj   (id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.NeuralNetDontTrain:
-		return new TeamObj   (id, player_identity.c, player_identity.n, false, build_fn, command_fn);
+		return new TeamObj   (id, player_identity.c, player_identity.n, false, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.NeuralNetModReinforcement:
-		return new ReinforcementLearningTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new ReinforcementLearningTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.NeuralNetModRWithHistory:
-		return new ReinforcementLearningTeamWithHistory(id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new ReinforcementLearningTeamWithHistory(id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.Random:
 		return new RandomTeam(id, player_identity.c, player_identity.n);
 	case AiType.Manual:
-		return new PlayerTeam(id, player_identity.c, player_identity.n, "Player", build_fn, command_fn);
+		return new PlayerTeam(id, player_identity.c, player_identity.n, "Player", build_fn, command_fn, player_identity.nn_archi);
 	case AiType.ScriptedCapper:
 		return new CapperTeam(id, player_identity.c, player_identity.n);
+	case AiType.ScriptedCapper2:
+		return new ScriptedCapper2Team(id, player_identity.c, player_identity.n);
 	case AiType.ScriptedDefender:
 		return new DefenderTeam(id, player_identity.c, player_identity.n);
 	case AiType.Strategy1: case AiType.Strategy2: case AiType.Strategy3: case AiType.Strategy4: case AiType.Strategy5: 
 	case AiType.Strategy6: case AiType.Strategy7: case AiType.Strategy8: case AiType.Strategy9: case AiType.Strategy10:
 		return new SingleStrategyTeam(id, player_identity.c, player_identity.n, to!(int)(player_identity.type - AiType.Strategy1));
 	case AiType.NeuralNetModRWithHistoryStrat:
-		return new ReinforcementLearningStrategyTeamWithHistory(id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new ReinforcementLearningStrategyTeamWithHistory(id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.NeuralNetStrat:
-		return new StrategyTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new StrategyTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
 	case AiType.NeuralNetModRStrat:
-		return new ReinforcementLearningStrategyTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn);
+		return new ReinforcementLearningStrategyTeam(id, player_identity.c, player_identity.n, true, build_fn, command_fn, player_identity.nn_archi);
+	case AiType.ScriptedAggro:
+		return new ScriptedAggroTeam(id, player_identity.c, player_identity.n);
+	case AiType.ScriptedBoom:
+		return new ScriptedBoomerTeam(id, player_identity.c, player_identity.n);
+	case AiType.ScriptedAssassin:
+		return new ScriptedAssassinTeam(id, player_identity.c, player_identity.n);
 	
   }
 }
@@ -242,6 +297,8 @@ IActivationFunction make_build_fn(ActFnType type)
 			return new LeakyReLUActivationFunction();
 		case ActFnType.Tanh:
 			return new TanhActivationFunction();
+		case ActFnType.ReLU6:
+			return new LeakyReLU6ActivationFunction();
 	}
 }
 
@@ -266,7 +323,7 @@ RectangleShape[] g_ticket_bars = [
 								 
 RectangleShape g_timer_bar;
 				 
-const double g_starting_tickets = 500.0;				 
+const double g_starting_tickets = 600.0;				 
 				 
 				 
 bool g_is_manual_game = false; // TODO: this should be one of the parameters to run match.
@@ -312,21 +369,26 @@ string TOURNEY_FILE = "nets\\_tourney_state.txt";
 
 void run_tourney(string [] args, RenderWindow window)
 {
+	static bool allow_scripted_vs_scripted = false; // TODO: read from params
 	
 	//load position
-	string state_string = readText(TOURNEY_FILE);
-	string[] iter_vals  = split(state_string,",");
+	int[2] result;
+	result = read_tourney_state();
+	string state_string;
 	
-	writefln("loaded state %s, %s", iter_vals[0], iter_vals[1]);
+	///result = [0,1]; ///
+	writefln("loaded state %s, %s", result[0], result[1]);
 	
-	for( int challenger = to!int(iter_vals[0]) ; challenger < ai_identities.length && window.isOpen(); ++challenger )
+	for( int challenger = result[0] ; challenger < ai_identities.length && window.isOpen(); ++challenger )
 	{
-		for( int opponent = to!int(iter_vals[1]) ; opponent   < ai_identities.length && window.isOpen(); ++opponent )
+		for( int opponent = result[1] ; opponent   < ai_identities.length && window.isOpen(); ++opponent )
 		{
-			if(challenger != opponent)
+			if(challenger != opponent && 
+				(allow_scripted_vs_scripted || 
+				(!ai_identities[challenger].is_scripted()) || !ai_identities[opponent].is_scripted()) )
 			{
 				//save position
-				std.file.write( TOURNEY_FILE, to!string(challenger) ~ "," ~ to!string(opponent) );
+				write_tourney_state(challenger, opponent);
 				
 				if(g_teams[0] !is null) { destroy(g_teams[0]); }
 				if(g_teams[1] !is null) { destroy(g_teams[1]); }
@@ -337,15 +399,68 @@ void run_tourney(string [] args, RenderWindow window)
 				GC.collect();
 			}
 		}
-		iter_vals[1] = "0";
+		result[1] = 0;
 		
 	}
 	
-	// save poition 0,0 for next tourney
+	// save poition 0,1 for next tourney
 	if( window.isOpen() )
 	{
-		std.file.write( TOURNEY_FILE, "0,0" );
+		write_tourney_state(0, 1);
 	}
+}
+
+void write_tourney_state(int p1, int p2)
+{
+	File f;
+	f.open(TOURNEY_FILE, "w");
+	//write last opponents
+	f.writefln("%d,%d", p1, p2);
+	scope (exit) 
+	{
+		f.close();
+	}
+	
+	// write win counts by player
+	// name win/loss,
+	foreach (name; win_counts.byKey())
+	{
+		f.writefln("%s: %d/%d", name, win_counts[name], loss_counts[name]);
+	}
+	
+	if (win_counts.length == 0)
+		return;
+	int maxlen = win_counts.byKey().map!(a => a.length).reduce!((a,b)=>max(a,b)); //func yeah.
+	//write win counts vs
+	//name vs opp1: win/loss, vs opp2: win/loss
+	foreach(name ; win_counts.byKey())
+	{
+		f.writef("%*s ", maxlen, name);
+		foreach(name2 ; win_counts.byKey())
+		{
+			countvskey key = countvskey(name, name2);
+			int won  = key in  win_counts_vs ?  win_counts_vs[key] : 0;
+			int lost = key in loss_counts_vs ? loss_counts_vs[key] : 0;
+			f.writef("vs %*s: %d/%d, ", maxlen, name2, won, lost);
+		}
+		f.writeln();
+	}
+}
+
+int[2] read_tourney_state()
+{
+	if(!exists(TOURNEY_FILE))
+		return [0, 1];
+	//TODO: the rest of that stuff from above
+	
+	File f;
+	f.open(TOURNEY_FILE, "r");
+	int[2] result;
+	f.readf("%d,%d\n", &result[0], &result[1]);
+	
+	
+	f.close();
+	return result;
 }
 
 void run_manual(string [] args, RenderWindow window)
@@ -487,9 +602,12 @@ void run_training (string [] args, RenderWindow window)
 	void train_ai(BaseAI ai)
 	{
 		NNManagerModReinforcementWithHistory nnm = to!(NNManagerModReinforcementWithHistory)(ai._nn_mgr);
-		nnm._hist.set_read_from_start();
+		
+		writeln("TRAIN AI IS CURRENTLY BROKEN");
+		RecordHistory hist = nnm.make_history();
+		hist.set_read_from_start();
 		if (num_records == -1)
-			nnm._record_limit = nnm._hist._num_records;
+			nnm._record_limit = hist._num_records;
 		else
 			nnm._record_limit = num_records;
 		if (num_epochs == -1)
@@ -503,7 +621,6 @@ void run_training (string [] args, RenderWindow window)
 		ai.make_training_data( null );
 		ai.train_net();
 		ai.save_net();
-		//ai.train_net();//testest
 	}
 	
 	if( train_build )
@@ -545,6 +662,7 @@ void run_match(string [] args, RenderWindow window)
 	
 	g_teams[0].set_opponent(g_teams[1]);
 	g_teams[1].set_opponent(g_teams[0]);
+	g_teams[1].set_mirror_points(true);
 	writeln("opponents are set");
 	
 	////////////////////////////////////
@@ -662,6 +780,13 @@ void run_match(string [] args, RenderWindow window)
 	
 	g_teams[0].set_match_info(minfo);
 	g_teams[1].set_match_info(minfo);
+	
+	// if the colors are the same, generate an alternate one.
+	if (g_teams[0]._color == g_teams[1]._color)
+	{
+		Color base = g_teams[0]._color;
+		g_teams[1]._color = Color(255 - base.r, 255 - base.g, 255 - base.b);
+	}
 	
 	FactoryUnit factory1 = cast(FactoryUnit)make_unit(UnitType.Mothership, g_teams[0], g_teams[0]._color, cap_placement_scale*1.0, cap_placement_scale*1.0, g_teams[0]._is_player_controlled ); 
 		dots      ~= factory1;
@@ -871,6 +996,7 @@ void run_match(string [] args, RenderWindow window)
 			
 			draw_ticket_bars(window);
 			draw_timer_bar  (window, game_time_limit, game_timer);
+			draw_ticket_arrows(window);
 			
 			window.display();
 		
@@ -888,29 +1014,62 @@ void run_match(string [] args, RenderWindow window)
 		if(game_over)
 		{
 			// update win/loss counts
-			foreach(team; g_teams[0..2])
+			void update_win_loss_counts(string team_name, string opp_name, bool won)
 			{
-				string team_name = team._name.idup();
-				if( (team_name in win_counts) is null)
-					win_counts[team_name] = 0;
+				if( (team_name in  win_counts) is null)
+					win_counts [team_name] = 0;
 				if( (team_name in loss_counts) is null)
 					loss_counts[team_name] = 0;
-				if(team._won_game)
-					win_counts[team_name]++;
+				if(won)
+					win_counts [team_name]++;
 				else
 					loss_counts[team_name]++;
 					
+				
+				countvskey key = countvskey(team_name, opp_name);
+				if ( (key in  win_counts_vs) is null)
+					win_counts_vs [key] = 0;
+				if ( (key in loss_counts_vs) is null)
+					loss_counts_vs[key] = 0;
+				if (won)
+					win_counts_vs [key]++;
+				else
+					loss_counts_vs[key]++;
+			}
+			
+			update_win_loss_counts(g_teams[0]._name.idup(), g_teams[1]._name.idup(), g_teams[0]._won_game);
+			update_win_loss_counts(g_teams[1]._name.idup(), g_teams[0]._name.idup(), g_teams[1]._won_game);
+			
+			foreach(team; g_teams[0..2])
+			{
+				string team_name = team._name.idup(); // we do this twice because training spams the console a LOT
 				writefln("%s: %d Wins, %d Losses", team_name, win_counts[team_name], loss_counts[team_name]);
 				
 			}
-			foreach(team; g_teams[0..2])
+			if (g_teams[0]._train && g_teams[1]._train && g_teams[0]._name == g_teams[1]._name)
 			{
-				team.handle_endgame_parrallel(); // TODO: did we always do the losing team first for any reason?
+				foreach(team; g_teams[0..2])
+				{
+					team.handle_endgame_parrallel(); // if we're training the same net, we really don't want to train them both at once.
+					team.wait_on_training_tasks();
+				}
+			} else {
+				foreach(team; g_teams[0..2])
+				{
+					team.handle_endgame_parrallel(); 
+				}
+				
+				// wait on threadpool tasks
+				g_teams[0].wait_on_training_tasks();
+				g_teams[1].wait_on_training_tasks();
 			}
 			
-			// wait on threadpool tasks
-			g_teams[0].wait_on_training_tasks();
-			g_teams[1].wait_on_training_tasks();
+			//TODO: make the console less spammy.
+			foreach(team; g_teams[0..2])
+			{
+				string team_name = team._name.idup();
+				writefln("%s: %d Wins, %d Losses", team_name, win_counts[team_name], loss_counts[team_name]);
+			}
 			
 			write("\n\n");
 		}
@@ -975,6 +1134,55 @@ void draw_timer_bar( RenderTarget surface, double time_limit, double game_timer 
 	g_timer_bar.position = Vector2f( surface.getSize().x - 50.0f , 30.0f );
 	
 	surface.draw(g_timer_bar);
+	
+}
+
+
+
+void draw_ticket_arrows(RenderTarget surface)
+{
+	static Text label = null;
+	static Font font = null;
+	if(label is null)
+		label = new Text();
+	if(font is null)
+	{
+		font = new Font();
+		if (!font.loadFromFile("font/OpenSans-Regular.ttf"))
+		{
+			assert(false, "font didn't load");
+		}
+	}
+	
+	
+	int point_diff = g_teams[0]._num_points_owned - g_teams[1]._num_points_owned;
+	char[] arrow_str = [];
+	
+	if (point_diff == 0) 
+	{
+		label.setColor(Color.White);
+		arrow_str = "=".dup();
+	} else {
+		arrow_str.length = abs(point_diff);
+		if (point_diff < 0)
+		{
+			label.setColor(g_teams[1]._color);
+			arrow_str[] = '>';
+		} else {
+			label.setColor(g_teams[0]._color);
+			arrow_str[] = '<';
+		}
+	}
+	
+	
+	label.setFont(font); 
+	label.setCharacterSize(15);
+	label.setString(arrow_str.idup());
+	
+	label.position = Vector2!float(surface.getSize().x/2.0 - 5*arrow_str.length, 35.0);
+	label.position.x = to!int(label.position.x);
+	label.position.y = to!int(label.position.y);
+	surface.draw(label);
 	
 }
 

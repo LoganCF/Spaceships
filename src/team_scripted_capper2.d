@@ -1,4 +1,4 @@
-module team_single_strategy;
+module team_scripted_capper2;
 
 
 import std.random;
@@ -18,19 +18,17 @@ import gamestateinfo;
 import dsfml.graphics;
 import dsfml.system;
 
-class SingleStrategyTeam : TeamObj
+class ScriptedCapper2Team : TeamObj
 {
-  int _strat_id = 0;
 
-  this(TeamID in_id, inout Color in_color, inout char[] in_name, int in_strat_id)
+  this(TeamID in_id, inout Color in_color, inout char[] in_name)
   {
     super( in_id, in_color, in_name, false);
-	_strat_id = in_strat_id;
   }
   
   override string generate_display_str()
 	{
-		return format("Scripted Single-Strategy AI: %s", g_strategies[_strat_id]._name);
+		return format("Scripted Capper AI Mk2");
 	}
 
 	override int assign_command(Unit unit)
@@ -41,7 +39,7 @@ class SingleStrategyTeam : TeamObj
 		
 		StateInfo gamestate = make_state_info(unit);
 		
-		decision = strategies.g_strategies[_strat_id].evaluate(gamestate);
+		decision = strat_expand_safe.evaluate(gamestate);
 		
 		
 		if (decision == -1) decision = unit._destination_id;
@@ -54,17 +52,19 @@ class SingleStrategyTeam : TeamObj
 			_unit_destination_counts[old_dest][unit._type]--;
 		}
 		_unit_destination_counts[new_dest][unit._type]++;
-		unit._last_strat = _strat_id;
 		
-		record_move_order(unit, decision, _strat_id);
+		int strat_id = index_of_strat(strat_expand_safe);
+		unit._last_strat = strat_id;
+		
+		record_move_order(unit, decision, strat_id);
 		return decision;
 	}
 	
 	override UnitType get_build_order ( FactoryUnit building_unit )
 	{
-		/+_build_ai  .load_or_initialize_net();+/
 		
-		UnitType decision = to!UnitType( dice(18,6,3,2,9,1) );
+		
+		UnitType decision = _income < 200.0 ? UnitType.Interceptor : UnitType.Battleship;
 		record_build_decision(building_unit, decision);
 		return decision;
 		

@@ -1,6 +1,6 @@
 module and.util;
 
-alias void delegate ( uint currentEpoch, real currentError, real correct_value, real nn_result ) trainingProgressCallback;
+alias void delegate ( uint currentEpoch, real currentError, real deltaError, real largestError, real deltaLargestError ) trainingProgressCallback;
 
 int nodeWinner( real [] ins )
 {

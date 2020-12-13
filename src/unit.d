@@ -390,7 +390,7 @@ Unit make_unit ( UnitType type, TeamObj in_team, Color in_color, double x, doubl
 			new_unit = new Unit( x, y, 
 								 150.0, 150.0, 5, ShapeType.Square, in_color, // speed, accel, size, color
 								 MEDIUM_UNIT_HARD_RADIUS, MEDIUM_UNIT_SOFT_RADIUS,  MEDIUM_UNIT_HARD_RADIUS_PUSH, MEDIUM_UNIT_SOFT_RADIUS_PUSH, Lookahead.MEDIUM,  // steering params
-								 in_team, type, 1200.0, ArmorType.Light, 200.0, 1.5, 60.0, DamageType.AP, 0.15, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
+								 in_team, type, 1200.0, ArmorType.Light, 200.0, 1.25, 60.0, DamageType.AP, 0.15, player_controlled ); // unit params: health, armortype, range, rof, damage, attacktype
 			break;
 			
 		//////////////////////////////

@@ -27,9 +27,9 @@ class CommandAI : BaseAI
 {
 	// has a neuralnet and a record of decisions made in the most recent game.
 	
-	this( NNManagerBase in_nnm )
+	this( NNManagerBase in_nnm, int[] in_num_hidden = [144, 48] )
 	{
-		super(in_nnm);
+		super(in_nnm, in_num_hidden);
 		_record_keeper.set_time_window(COMMAND_AI_WINDOW * _nn_mgr.time_window_scale);
 	}
 	
@@ -43,7 +43,7 @@ class CommandAI : BaseAI
 		int num_inputs = NUM_COMMAND_AI_INPUTS;
 			
 		int num_outputs = NUM_CAPTURE_POINTS;
-		int[] num_hidden_neurons = [144, 48];
+		int[] num_hidden_neurons = _num_hidden;
 		
 		_nn_mgr.do_init(num_inputs, num_hidden_neurons, num_outputs);	
 		

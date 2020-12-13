@@ -15,6 +15,8 @@ import std.stdio;
 import std.format;
 import std.parallelism;
 import std.traits;
+import std.range;
+import std.range.interfaces;
 
 import spaceships;
 import steering;
@@ -67,13 +69,15 @@ class TeamObj : Drawable
 	
 	FactoryUnit[]* _factories;
 	CapturePoint[] _points; // list of all points.
+	bool _mirror_points = false; // so we can view the points backwards in ai inputs and order assignment
+	//RandomAccessRange!(capture_point) _points_view = RefRange(_points); 
 	int[][]  _unit_counts;
 	int[][]  _unit_destination_counts;
 	double[] _unit_total_cost_at_points; // set by capture point objects
 	int[] _total_units_by_type;
 	int[]    _unit_built_counts;
 	int[]    _unit_lost_counts;
-	real     _total_army_value = 0.0; //TODO: this needs to be updated for the initial mothership. should there be a add_unit_to_team function?
+	real     _total_army_value = 0.0; 
 	
 	BaseAI _build_ai;//TODO: interface for build/ command ai?
 	BaseAI _command_ai;
@@ -108,7 +112,7 @@ class TeamObj : Drawable
 	
 	
 	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true, 
-		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null ) //TODO: will take AI objects.
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null, int[] in_nn_archi = NNArchi.Standard) //TODO: will take AI objects.
 	{
 		_color = in_color;
 		_id = in_id;
@@ -121,25 +125,26 @@ class TeamObj : Drawable
 		
 		_build_act_fn = in_build_act_fn;
 		_command_act_fn = in_command_act_fn;
+		
 		if (in_name != "")  //TODO: another neutral case
 		{
 			ensure_act_fns();
-			init_ais(in_name);
+			init_ais(in_name, in_nn_archi != [] ? in_nn_archi : NNArchi.Standard);
 		}
 		//writefln("constructing team %s", in_name); //neutral team is made at compile time
 		
 	}
 	
 	//for constructor
-	void init_ais(inout char[] in_name)
+	void init_ais(inout char[] in_name, int[] nn_archi)
 	{
 		
 		NNManagerBase build_nnm = new NNManagerClassifier(in_name ~ "_build.txt"    , _build_act_fn);
-		_build_ai   = new BuildAI( build_nnm ); 
+		_build_ai   = new BuildAI( build_nnm, nn_archi ); 
 		
 		
 		NNManagerBase command_nnm = new NNManagerClassifier(in_name ~ "_command.txt", _command_act_fn);
-		_command_ai = new CommandAI( command_nnm  );
+		_command_ai = new CommandAI( command_nnm, nn_archi );
 		
 	}
 	
@@ -154,7 +159,9 @@ class TeamObj : Drawable
 	
 	~this()
 	{
-		_factories = null; // this may avoid a memleak TODO: test this.
+		destroy(_factories); // this may avoid a memleak TODO: test this.
+		destroy(_build_ai);
+		destroy(_command_ai);
 	}
 	
 	//notify the team that a unit was added to it.
@@ -207,7 +214,7 @@ class TeamObj : Drawable
 				//deal with Miner ships, each miner adds 1/4th the remaining distance between double the point's income
 				for(int i = 0; i < _unit_counts[point._zone_number][UnitType.Miner]; ++i) 
 				{
-					income_from_this_point += (INCOME_PER_POINT * 2 - income_from_this_point) * MINER_INCOME_FRACTION; 
+					income_from_this_point += (INCOME_PER_POINT * 3 - income_from_this_point) * MINER_INCOME_FRACTION; 
 				}
 				
 				_income += income_from_this_point;
@@ -274,7 +281,7 @@ class TeamObj : Drawable
 			_display_str.setCharacterSize(15);
 			_display_str.setColor(_color);
 			
-			Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(renderTarget.getSize().x/2.0, 0.0);
+			Vector2!float offset = _id == TeamID.One ? Vector2!float(0.0, 0.0) : Vector2!float(renderTarget.getSize().x/2.0 + 50, 0.0);
 			_display_str.position = Vector2!float(10.0, 35.0) + offset; 
 			_display_str.position.x = to!int(_display_str.position.x);
 			_display_str.position.y = to!int(_display_str.position.y);
@@ -301,6 +308,12 @@ class TeamObj : Drawable
 	string get_ai_actfn_name()
 	{
 		return ActivationIdToStr(_command_ai._nn_mgr._activation_function.id);
+	}
+	
+	void set_mirror_points (bool reverse)
+	{
+		_mirror_points = reverse;
+		//_points_view = reverse ? RefRange(_points).retro : RefRange(_points);
 	}
 	
 	// sets metric data for AIs
@@ -355,6 +368,11 @@ class TeamObj : Drawable
 		_match_info = info;
 	}
 	
+	auto maybe_mirror(R)(R r)
+	{
+		return choose( _mirror_points, r.retro(), r);
+	}
+	
 	
 	//gen 2  : num built/killed, location boredom, total cost at point
 	//gen 2.5: tickets
@@ -368,10 +386,10 @@ class TeamObj : Drawable
 		inputs.reserve( NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4 ); // so that we don't resize the array a bunch of times in the next 4 calls.
 		
 		//TODO: calculate the board state for the team externally, the first time it is needed each frame, and cache that shit.
-		add_num_units_scaled_by_cost_to_array( 		       _unit_counts	 		   ,  inputs );
-		add_num_units_scaled_by_cost_to_array( 		       _unit_destination_counts,  inputs );
-		add_num_units_scaled_by_cost_to_array(   _opponent._unit_counts  		   ,  inputs );
-		add_num_units_scaled_by_cost_to_array(   _opponent._unit_destination_counts,  inputs );
+		add_num_units_scaled_by_cost_to_array( 		       _unit_counts	 		   ,  inputs, _mirror_points );
+		add_num_units_scaled_by_cost_to_array( 		       _unit_destination_counts,  inputs, _mirror_points );
+		add_num_units_scaled_by_cost_to_array(   _opponent._unit_counts  		   ,  inputs, _mirror_points );
+		add_num_units_scaled_by_cost_to_array(   _opponent._unit_destination_counts,  inputs, _mirror_points );
 		//writefln("input size after unit counts: %d, expected value: %d, unittype has %d", inputs.length, NUM_UNIT_TYPES * NUM_CAPTURE_POINTS * 4, NUM_UNIT_TYPES);
 		
 		//totals by type (gen5)
@@ -385,28 +403,28 @@ class TeamObj : Drawable
 		}
 		
 		// total unit cost at point
-		foreach(total_cost; _unit_total_cost_at_points)
+		foreach(total_cost; maybe_mirror(_unit_total_cost_at_points))
 		{
 			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 2.0;  //TODO: make this a constant like a sane person
 		}
 		// enemy total cost at point
-		foreach(total_cost; _opponent._unit_total_cost_at_points)
+		foreach(total_cost; maybe_mirror(_opponent._unit_total_cost_at_points))
 		{
 			inputs ~= total_cost / UNIT_COST_SCALING_DIVISOR / 2.0;
 		}
 		
 		// threat for each point (gen 4)
-		foreach( point ; _points )
+		foreach( point ; maybe_mirror(_points) )
 		{
 			inputs ~= point.getThreatDiffForTeam(_id) / UNIT_COST_SCALING_DIVISOR / 2.0;
 		} ///336
 		
 		// points controlled by
-		foreach( point ; _points)
+		foreach( point ; maybe_mirror(_points))
 		{
 			inputs ~= (point._team_id == _opponent._id ) ? 1.0 : 0.0;
 		}
-		foreach( point ; _points)
+		foreach( point ; maybe_mirror(_points))
 		{
 			inputs ~= (point._team_id != _id) ? 1.0 : 0.0;  //changed in gen 3,
 		}
@@ -428,15 +446,15 @@ class TeamObj : Drawable
 		//distance to points
 		double closest_dist  = 9999.0;
 		int    closest_point_index = -1;
-		foreach( i, point ; _points )
+		foreach( point ; maybe_mirror(_points).enumerate(0) )
 		{
-			real dist_sq = square(unit._pos.x - point._pos.x) + square(unit._pos.y - point._pos.y);
+			real dist_sq = square(unit._pos.x - point.value._pos.x) + square(unit._pos.y - point.value._pos.y);
 			real dist = dist_sq >= 0.0 ? sqrt( dist_sq ) : 0.0;
 			inputs ~= dist / _match_info._battlefield_diagonal;
 			if(dist < closest_dist)
 			{
 				closest_dist = dist;
-				closest_point_index = i;
+				closest_point_index = point.index;
 			}
 		}
 		//closest point (gen3.5)
@@ -550,6 +568,14 @@ class TeamObj : Drawable
 			new_dest = old_dest;
 		if (new_dest == -1)
 			new_dest = 0;
+			
+			
+		//do point mirroring, but only if it's not from a strategy, from a manual decision, or from a scripted ai
+		if(result.strategy == -1 && _mirror_points)
+		{
+			new_dest = NUM_CAPTURE_POINTS - 1 - new_dest;
+			//todo make sure this is correct
+		}
 		
 		if(old_dest != -1)
 		{
@@ -558,16 +584,15 @@ class TeamObj : Drawable
 		
 		_unit_destination_counts[new_dest][unit._type]++;
 		
-		
 		return new_dest;
 	}
 	
 	// used to record a move order when the player orders a move, 
 	// orders are normally recorded in ai_base.get_decision() when the AI is queried for a decision.
-	void record_move_order(Unit unit, int destination_index )
+	void record_move_order(Unit unit, int destination_index, int strat_index = -1)
 	{
 		real[] inputs = get_command_inputs(unit);
-		_command_ai.record_external_decision( inputs, destination_index );
+		_command_ai.record_external_decision( inputs, destination_index, strat_index);
 	}
 	
 	
@@ -620,28 +645,30 @@ class TeamObj : Drawable
 	static void train_ai(BaseAI ai, BaseAI opp_ai, string player_description, string ai_description) 
 	{
 		// TODO: write to a stream, then write that to console?
+		/+ commented out because it was having a mysterious race condition
 		writef("Generating training set for %s's %s AI: ", player_description, ai_description);
-		//alias train_build = _build_ai.make_training_data;
-		ai.make_training_data(opp_ai);
+		ai.make_training_data(null);  // TODO: param was originally opp_ai +/
 		writefln("%s", ai.get_training_header() );
 		writefln("Training %s's %s AI:", player_description, ai_description);
 		ai.train_net();
-		ai.save_net(); 
+		//ai.save_net(); 
 		writefln("done with all training tasks for %s's %s ai.", player_description, ai_description);
 	}
 	
 	void wait_on_training_tasks()
 	{
-		if(_task_train_build !is null)
+		if(_task_train_build !is null && !_task_train_build.done())
 		{
 			writeln("waiting for build ai");
 			_task_train_build.yieldForce();
 		}
-		if(_task_train_command !is null)
+		_build_ai.save_net();
+		if(_task_train_command !is null && !_task_train_command.done())
 		{
 			writeln("waiting for command ai");
 			_task_train_command.yieldForce();
 		}
+		_command_ai.save_net();
 	}
 	
 	
@@ -659,6 +686,11 @@ class TeamObj : Drawable
 		
 		void make_training_tasks(string player_description)
 		{
+			writef("Generating training set for %s's build AI: ", player_description);
+			_build_ai.make_training_data(_opponent._build_ai);  
+			writef("Generating training set for %s's command AI: ", player_description);
+			_command_ai.make_training_data(_opponent._command_ai);  
+			
 			_task_train_build = task!train_ai(_build_ai, _opponent._build_ai, player_description, "build");
 			std.parallelism.taskPool.put(_task_train_build);
 			
@@ -880,9 +912,9 @@ struct ScoreData
 	}
 }
 
-void add_num_units_scaled_by_cost_to_array (int[][] count_array , ref real[] neuron_input_array ) 
+void add_num_units_scaled_by_cost_to_array (int[][] count_array , ref real[] neuron_input_array, bool mirror ) 
 {
-	foreach(ref location; count_array )
+	foreach(ref location; choose(mirror, count_array.retro(), count_array) )
 	{
 		foreach( int type, ref count; location )
 		{

@@ -23,9 +23,9 @@ import std.format;
 class ReinforcementLearningStrategyTeamWithHistory : ReinforcementLearningStrategyTeam
 {
 	this(TeamID in_id, inout Color in_color, inout char[] in_name, bool in_train = true,
-		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null) // will take AI objects.
+		IActivationFunction in_build_act_fn = null, IActivationFunction in_command_act_fn = null, int[] in_nn_archi = [] ) // will take AI objects.
 	{
-		super(in_id, in_color, in_name, in_train, in_build_act_fn, in_command_act_fn);
+		super(in_id, in_color, in_name, in_train, in_build_act_fn, in_command_act_fn, in_nn_archi);
 	}
 	
 	override string generate_display_str()
@@ -33,10 +33,11 @@ class ReinforcementLearningStrategyTeamWithHistory : ReinforcementLearningStrate
 		return format("Mod-R strategy-picker AI with history using %s", get_ai_actfn_name());
 	}
 
-	override void init_ais(inout char[] in_name)
+	override void init_ais(inout char[] in_name, int[] nn_archi)
 	{
 		NNManagerBase build_nnm   = new NNManagerModReinforcementWithHistory(in_name ~ "_build.txt"  ,
 			_build_act_fn);
+		(cast(NNManagerModReinforcementWithHistory)build_nnm)._record_limit = 500;
 		_build_ai   = new BuildAI( build_nnm ); 
 		
 		NNManagerBase command_nnm = new NNManagerModReinforcementWithHistory(in_name ~ "_command.txt", 

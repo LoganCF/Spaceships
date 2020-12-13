@@ -78,6 +78,7 @@ public
   import and.activation.tanh;
   import and.activation.linear; /+++/
   import and.activation.leaky_relu; /+++/
+  import and.activation.leaky_relu6; /+++/
   
   import and.learning.model.ilearning;
   import and.learning.backprop;

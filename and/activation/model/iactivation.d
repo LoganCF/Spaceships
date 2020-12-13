@@ -15,7 +15,8 @@ enum ActivationId
     SIGMOID,
     TANH,
 	LINEAR, /+++/
-	LEAKY_RELU /+++/
+	LEAKY_RELU, /+++/
+	LEAKY_RELU6 /+++/
   }
 
   /**
@@ -44,5 +45,7 @@ string ActivationIdToStr(ActivationId id)
 			return "Linear";
 		case ActivationId.LEAKY_RELU:
 			return "Leaky ReLU";
+		case ActivationId.LEAKY_RELU6:
+			return "Leaky ReLU6";
 	}
 }
